@@ -1,0 +1,89 @@
+{
+	"pages": [ //pages数组中第一项表示应用启动页，参考：https://uniapp.dcloud.io/collocation/pages
+		{
+			"path": "pages/index/index",
+			"style": {
+				"enablePullDownRefresh": true,
+				"backgroundColor":"#eff3f4"
+			}
+		}, {
+			"path": "pages/trending/index",
+			"style": {
+				"enablePullDownRefresh": true
+			}
+		}, {
+			"path": "pages/decks/index",
+			"style": {}
+		}, {
+			"path": "pages/decks/decksList/index",
+			"style": {
+				"enablePullDownRefresh": true
+			}
+		}, {
+			"path": "pages/decks/archetypeDetail/index",
+			"style": {}
+		}, {
+			"path": "pages/decks/deckDetail/index",
+			"style": {}
+		}, {
+			"path": "pages/decks/compareDeck/index",
+			"style": {}
+		}, {
+			"path": "pages/cards/index",
+			"style": {}
+		}, {
+			"path": "pages/cards/cardDetail/index",
+			"style": {}
+		}, {
+			"path": "pages/mine/index",
+			"style": {}
+		}, {
+			"path": "pages/mine/about/index",
+			"style": {}
+		}, {
+			"path": "pages/mine/collection/index",
+			"style": {}
+		}, {
+			"path": "pages/index/articleDetail/index",
+			"style": {}
+		}
+	],
+	"globalStyle": {
+		"backgroundTextStyle": "light",
+		"navigationBarBackgroundColor": "#fff",
+		"navigationBarTitleText": "炉石传说情报站",
+		"navigationBarTextStyle": "black",
+		"navigationStyle": "custom"
+	},
+	"tabBar": {
+		"selectedColor": "#433e88",
+		"color": "#aaa",
+		"backgroundColor": "#fff",
+		"list": [{
+			"pagePath": "pages/index/index",
+			"text": "首页",
+			"iconPath": "static/icons-v2/tabicon-1b.png",
+			"selectedIconPath": "static/icons-v2/tabicon-1a.png"
+		}, {
+			"pagePath": "pages/trending/index",
+			"text": "热门套牌",
+			"iconPath": "static/icons-v2/tabicon-2b.png",
+			"selectedIconPath": "static/icons-v2/tabicon-2a.png"
+		}, {
+			"pagePath": "pages/decks/index",
+			"text": "套牌",
+			"iconPath": "static/icons-v2/tabicon-3b.png",
+			"selectedIconPath": "static/icons-v2/tabicon-3a.png"
+		}, {
+			"pagePath": "pages/cards/index",
+			"text": "单卡",
+			"iconPath": "static/icons-v2/tabicon-4b.png",
+			"selectedIconPath": "static/icons-v2/tabicon-4a.png"
+		}, {
+			"pagePath": "pages/mine/index",
+			"text": "我的",
+			"iconPath": "static/icons-v2/tabicon-5b.png",
+			"selectedIconPath": "static/icons-v2/tabicon-5a.png"
+		}]
+	}
+}

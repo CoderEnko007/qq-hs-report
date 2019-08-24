@@ -1,0 +1,999 @@
+<template>
+  <div class="container">
+    <NavBar :showCapsule="true" navTitle="套牌详情"></NavBar>
+    <div class="banner" :style="{'background-image': bannerImg?'url('+bannerImg+')':''}">
+      <div class="bubble" :style="{'display': showBubble?'block':'none'}">
+        <add-bubble></add-bubble>
+      </div>
+      <div class="overview">
+        <div class="deck-name">
+          <div class="icon">
+            <img :src="genFactionIcon" mode="aspectFit">
+          </div>
+          <div class="name">
+            <p class="cname">{{deckDetail.cname}}</p>
+            <div class="dust-cost" v-show="deckDetail.dust_cost">
+              <img :src="dustImage" mode="aspectFit">
+              <p>{{deckDetail.dust_cost}}</p>
+            </div>
+          </div>
+        </div>
+        <div class="archeBtn" @click="gotoArchetypeDetail" v-if="showArchetype">
+          <span>职业形态</span>
+          <span class="iconfont">&#xe600;</span>
+        </div>
+        <div class="desc">
+          <div class="desc-item" v-show="deckDetail.real_win_rate">
+            <p class="item-name">胜率</p>
+            <p class="item-meta font-bold color-light-green" :class="{'color-red': deckDetail.real_win_rate<50}">{{deckDetail.real_win_rate}}%</p>
+          </div>
+          <div class="desc-item" v-show="deckDetail.game_count">
+            <p class="item-name">对局数</p>
+            <p class="item-meta">{{gameCount}}</p>
+          </div>
+          <div class="desc-item" v-show="deckDetail.duration">
+            <p class="item-name">对局时长</p>
+            <p class="item-meta">{{deckDetail.duration}}分钟</p>
+          </div>
+          <div class="desc-item" v-show="deckDetail.turns">
+            <p class="item-name">回合数</p>
+            <p class="item-meta">{{deckDetail.turns}}</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="btn-group" :style="{display: deckChecked?'block':'none'}">
+      <FooterMenu showExportBtn="true" showCollectBtn="true"
+                  :collected="deckCollected"
+                  @collectClick="handleCollection"
+                  @exportClick="handleExport"
+                  ref="btnGroup"></FooterMenu>
+    </div>
+    <div class="card-list" v-if="deckDetail.card_list.length">
+      <div class="headline m-30"><span class="title">套牌组成</span></div>
+      <div class="m-30">
+        <DeckCards :cards="deckDetail.card_list" @cardClick="handleCardClick"></DeckCards>
+      </div>
+      <div class="rarity-panel m-30">
+        <div class="capsule" v-for="(item, index) in rarityChartData" :key="index" v-if="item.value>0">
+          <div class="icons" :style="{'background-color': item.color}"></div>
+          <span class="name">{{item.cname}}</span>
+          <span class="value">{{item.value}}</span>
+        </div>
+      </div>
+      <div class="type-panel m-30">
+        <div class="capsule" v-for="(item, index) in typeChartData" :key="index" v-if="item.value>0">
+          <span class="name">{{item.cname}}</span>
+          <span class="value">{{item.value}}</span>
+        </div>
+      </div>
+      <div class="deck-code m-30">
+        <div class="code"><span>{{deckDetail.deck_code}}</span></div>
+        <button @click="copyDeckCode">复制神秘代码</button>
+      </div>
+      <div class="ads" style="margin: 10px 0;">
+        <ad unit-id="48a575a470bd0be8f7c060be1c59465a"></ad>
+      </div>
+      <!--<div class="separator"></div>-->
+      <div class="winrate-block m-30">
+        <div class="headline"><span class="title">对阵各职业胜率</span></div>
+        <WinRateBoard :list="winrateChartData"></WinRateBoard>
+      </div>
+      <div class="separator"></div>
+      <div class="data-chart">
+        <div class="headline m-30"><span class="title">费用分布</span></div>
+        <!-- <BarChart :chartData="costChartData" canvasId="costBar"></BarChart> -->
+        <canvas canvas-id="canvasColumn" id="canvasColumn" class="charts" v-if="!costChartImg"></canvas>
+        <img class="charts" :src="costChartImg" mode="aspectFit" v-else>
+      </div>
+    </div>
+    <div class="loading" v-else>
+      <SpinKit :mode="'sk-spinner-pulse'"></SpinKit>
+    </div>
+    <div class="safe-panel" :style="{'height': 60+'rpx'}"></div>
+    <div style="position: fixed; top: 9999999999999px; overflow: hidden">
+      <canvas :style="{width: canvasWidth+'px', height: canvasHeight+'px', 'margin-left': '30rpx'}" canvas-id="deck-pic"></canvas>
+    </div>
+    <div class="float-btn">
+      <floatBtnGroup @onCompare="openCompareDeckModal" :badgeCount="badgeCount" showCompare="true"></floatBtnGroup>
+    </div>
+    <compareDeckModal ref="cDeckModal"
+                      @confirm="handleDeckCompare"
+                      @clear="handleClearDeckModal"
+                      @addCompareDeck1="handleAddDeck1"
+                      @addCompareDeck2="handleAddDeck2"
+    ></compareDeckModal>
+  </div>
+</template>
+<script>
+import utils from '@/utils'
+import { mapGetters, mapMutations, mapState } from 'vuex'
+import {getDeckDetail, setUserCollection, cancelUserCollection, getArchetypeDetail} from "@/api/dbapi";
+import {getComponentByTag, iFanrTileImageURL, getImageInfoAsync} from "@/utils";
+import DeckCards from '@/components/DeckCards'
+import FooterMenu from '@/components/FooterMenu'
+import NavBar from '@/components/NavBar'
+import WinRateBoard from '@/components/WinRateBoard'
+import AddBubble from '@/components/AddBubble'
+import floatBtnGroup from '@/components/floatBtnGroup'
+import compareDeckModal from '@/components/compareDeckModal'
+// import BarChart from '@/components/BarChart'
+import uCharts from '@/components/u-charts/u-charts.js';
+import SpinKit from '@/components/SpinKit'
+
+let _this;
+let barChart=null;
+
+const defaultDetail = {
+  background_img: '',
+  deck_name: '',
+  cname: '',
+  dust_cost: null,
+  win_rate: null,
+  game_count: null,
+  real_game_count: null,
+  duration: null,
+  turns: null,
+  card_list: '',
+  clazzCount: '',
+  rarityCount: '',
+  statistic: '',
+  faction_win_rate: ''
+}
+
+export default {
+  components: {
+    NavBar,
+    DeckCards,
+    FooterMenu,
+    WinRateBoard,
+    AddBubble,
+    floatBtnGroup,
+    compareDeckModal,
+    SpinKit,
+    // BarChart
+  },
+  data() {
+    return {
+      recordID : '',
+      deckID: '',
+      trending: false,
+      collected: false,
+      collectingFlag: false,
+      deckMode: 'Standard',
+      bannerImg: null,
+      deckDetail: Object.assign({}, defaultDetail),
+      dustImage: utils.image.dustImage,
+      costChartData: {
+        xAxis: ['0', '1', '2', '3', '4', '5', '6', '7+'],
+        yAxis: [],
+        min: 0,
+        max: 15
+      },
+      costUChartData: {
+        categories: ['0', '1', '2', '3', '4', '5', '6', '7+'],
+        series: [{data: [], color: "#433E88"}]
+      },
+      typeChartData: [],
+      rarityChartData: [],
+      rarityColor: [],
+      winrateChartData: [],
+      selectWinRate: {name: '', value: ''},
+      deckCollected: false,
+      deckChecked: false,
+      showArchetype: false,
+      canvasHeight: 270,
+      canvasWidth: 165,
+      cWidth:'',
+      cHeight:'',
+      pixelRatio:1,
+      costChartImg: null
+    }
+  },
+  computed: {
+    ...mapGetters([
+      'collectedDecks',
+      'decksName',
+      'navHeight',
+      'userInfo',
+      'showBubble',
+      'compareDeck1',
+      'compareDeck2',
+    ]),
+    badgeCount() {
+      let count = 0
+      count += this.compareDeck1?1:0
+      count += this.compareDeck2?1:0
+      return count
+    },
+    genFactionIcon() {
+      if (this.deckDetail.faction) {
+        return utils.faction[this.deckDetail.faction].image
+      }
+    },
+    gameCount() {
+      return this.deckDetail.real_game_count?this.deckDetail.real_game_count:this.deckDetail.game_count
+    },
+    adsOpenFlag() {
+      return utils.adsOpenFlag
+    },
+  },
+  methods: {
+    resetPageData() {
+      this.deckDetail = Object.assign({}, defaultDetail)
+      this.bannerImg = null
+      this.costChartData = {
+        xAxis: ['0', '1', '2', '3', '4', '5', '6', '7+'],
+        yAxis: []
+      }
+      this.typeChartData = []
+      this.rarityChartData = []
+      this.winrateChartData = []
+      this.selectWinRate = {name: '', value: ''}
+      this.deckCollected = false
+      this.showArchetype = false
+    },
+    async genDeckData() {
+      // wx.showLoading({
+      //   title: '加载中',
+      //   mask: false
+      // })
+      wx.showNavigationBarLoading();
+      let params = {}
+      if (this.recordID) {
+        params = {recordID: this.recordID}
+      } else if (this.deckID) {
+        params = {deckID: this.deckID}
+      }
+      params.mode = this.deckMode
+      const res = await getDeckDetail(params, this.trending, this.collected)
+      // getDeckDetail(params, this.trending, this.collected).then(res => {
+      if (!res) {
+        // wx.hideLoading()
+        wx.showModal({
+          title: '提示',
+          content: '抱歉，暂未收录该卡组',
+          showCancel: false,
+          success (res) {
+            wx.navigateBack()
+          }
+        })
+      } else {
+        this.checkDeckCollected()
+        this.deckDetail = res
+        let filterName = this.decksName.filter(v => {
+          return v.ename === this.deckDetail.deck_name
+        })
+        if (filterName.length>0) {
+          this.deckDetail.cname = filterName[0].cname
+        } else {
+          this.deckDetail.cname = this.deckDetail.deck_name
+        }
+        this.getArchetype()
+        this.bannerImg = utils.faction[this.deckDetail['faction']].bgImage1
+        this.costChartData.yAxis = JSON.parse(this.deckDetail.statistic)
+        let costMax = Math.max.apply(null, this.costChartData.yAxis)
+        this.costChartData.max = 5-costMax%10>0?costMax+5-costMax%10:costMax+10-costMax%10
+        this.costChartData = JSON.stringify(this.costChartData)
+        
+        this.costUChartData.series[0].data = JSON.parse(this.deckDetail.statistic)
+        this.showColumn("canvasColumn", this.costUChartData)
+
+        // 卡牌类型数据
+        this.typeChartData = []
+        let clazz = JSON.parse(this.deckDetail.clazzCount)
+        for (let index in clazz) {
+          if (clazz.hasOwnProperty(index)) {
+            this.typeChartData.push({
+              name: index.toLowerCase(),
+              cname: utils.type[index.toUpperCase()].name,
+              value: clazz[index]
+            })
+          }
+        }
+        // 卡牌稀有度数据
+        this.rarityChartData = []
+        let rarity = JSON.parse(this.deckDetail.rarityCount)
+        let commonCards = {name: '', cname: '基础/普通', value: 0, color: utils.rarity['free'].color}
+        this.rarityColor = []
+        for (let index in rarity) {
+          if (rarity.hasOwnProperty(index)) {
+            if (index.toLowerCase() === 'free' || index.toLowerCase() === 'common') {
+              commonCards.value += rarity[index]
+            } else {
+              this.rarityChartData.push({
+                name: index.toLowerCase(),
+                cname: utils.rarity[index.toLowerCase()].name,
+                value: rarity[index],
+                color: utils.rarity[index.toLowerCase()].color
+              })
+            }
+          }
+        }
+        this.rarityChartData.unshift(commonCards)
+        // 对阵各职业胜率数据
+        this.winrateChartData = JSON.parse(this.deckDetail.faction_win_rate)
+        this.winrateChartData = this.winrateChartData.map(item => {
+          item.win_rate = parseFloat(item.win_rate).toFixed(1)
+          return item
+        })
+        // wx.hideLoading()
+        wx.hideNavigationBarLoading()
+        wx.stopPullDownRefresh();
+      }
+    },
+    getArchetype() {
+      if (this.deckDetail.deck_name) {
+        getArchetypeDetail({name: this.deckDetail.deck_name}).then(res => {
+          if (res) {
+            this.showArchetype = true
+          } else {
+            this.showArchetype = false
+          }
+        })
+      }
+    },
+    handleCardClick(item) {
+      wx.navigateTo({
+        url: `/pages/cards/cardDetail/index?id=${item.dbfId}`
+      })
+    },
+    copyDeckCode() {
+      wx.setClipboardData({
+        data: this.deckDetail.deck_code,
+        success: function(res) {
+          wx.showToast({
+            title: '复制成功'
+          })
+        }
+      })
+    },
+    handleCollection() {
+      if (this.collectingFlag) {
+        return
+      } else {
+        this.collectingFlag = true
+      }
+      wx.showLoading({
+        title: '请稍等',
+        mask: true
+      })
+      if (this.deckCollected) {
+      //  如果已收藏则取消收藏
+        let data = {
+            collection_id: this.deckDetail.id,
+            user_id: this.userInfo.id,
+            deck_id: this.deckDetail.deck_id
+        }
+        this.$store.dispatch('cancelCollectedDeck', data).then(res => {
+          wx.hideLoading()
+          this.$refs.btnGroup.deactiveCollectIcon()
+          this.deckCollected = false
+          this.collectingFlag = false
+        }).catch(err => {
+          wx.hideLoading()
+          console.log(err)
+        })
+      } else {
+        if (this.userInfo.id) {
+          let data = {
+            query: {deck_id: this.deckDetail.deck_id, user_id: this.userInfo.id, trending: this.trending},
+            deckDetail: this.deckDetail
+          }
+          this.$store.dispatch('addCollectedDeck', data).then(res => {
+            wx.hideLoading()
+            wx.showToast({
+              title: '收藏成功',
+              icon: 'success',
+              duration: 2000
+            })
+            this.collectingFlag = false
+            this.$refs.btnGroup.activeCollectIcon()
+            this.deckCollected = true
+          }).catch(err => {
+            wx.hideLoading()
+            console.log(err)
+          })
+        } else {
+          this.collectingFlag = false
+          wx.showToast({
+            title: '请登录',
+            icon: 'none'
+          })
+        }
+      }
+    },
+    checkDeckCollected() {
+    //  检查当前卡组是否已收藏
+      if (this.userInfo.id) {
+        let res = this.collectedDecks.filter(item => {
+          if (this.recordID) {
+            return item.id === this.recordID
+          } else {
+            return item.deck_id === this.deckID
+          }
+        })
+        this.deckCollected = res.length > 0;
+      }
+      this.deckChecked = true
+    },
+    gotoArchetypeDetail() {
+      wx.navigateTo({
+        url: `/pages/decks/archetypeDetail/index?name=${this.deckDetail.deck_name}`
+      })
+    },
+    handleExport() {
+      wx.showLoading({
+        title: '图片生成中',
+        mask: true
+      })
+      this.saveImageToPhotos()
+    },
+    saveImageToPhotos () {
+      let _this = this
+      // 相册授权
+      wx.getSetting({
+        success(res) {
+          console.log('getSetting', res)
+          // 进行授权检测，未授权则进行弹层授权
+          if (!res.authSetting['scope.writePhotosAlbum']) {
+            wx.authorize({
+              scope: 'scope.writePhotosAlbum',
+              success () {
+                _this.drawDeckCanvas()
+              },
+              fail() {
+                wx.hideLoading()
+                wx.showModal({
+                  content: '您尚未打开相册使用权限，是否去设置打开？',
+                  confirmColor: '#433e88',
+                  success (res) {
+                    if (res.confirm) {
+                      wx.openSetting({
+                        success(res) {
+                          console.log(res.authSetting)
+                        }
+                      })
+                    }
+                  }
+                })
+              }
+            })
+          } else {
+            // 已授权则直接进行保存图片
+            console.log('PhotosAlbum已授权')
+            _this.drawDeckCanvas()
+          }
+        },
+        fail(res) {
+          wx.hideLoading()
+          wx.showToast({
+            title: '图片保存失败',
+            icon: 'none',
+            duration: 2000
+          })
+        }
+      })
+    },
+    async drawDeckCanvas() {
+      console.log('drawDeckCanvas')
+      let rarityColor = {
+        common: '#5e5e5e',
+        rare: '#1768c6',
+        epic: '#705dc7',
+        legendary: '#f5a623'
+      }
+      let formatData = {}
+      if(this.deckDetail.card_list) {
+        formatData = JSON.parse(this.deckDetail.card_list)
+        for (let card of formatData) {
+          card['img'] = iFanrTileImageURL(card.tile)
+          if (card.rarity === 'LEGENDARY') {
+            card['count'] = '★'
+          }
+        }
+      }
+      let ctx = wx.createCanvasContext('deck-pic')
+      // 每张tile高29px，间隔1px
+      let tileHeight=30
+      let headHeight = 52
+      let bRectHeight = 26
+      let cardListHeight = tileHeight*formatData.length-1
+      this.canvasHeight = cardListHeight+headHeight+bRectHeight+2
+      ctx.setFillStyle('#000')
+      ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight)
+      // 绘制头部图片背景
+      ctx.save()
+      ctx.setFillStyle('#2C3E50')
+      ctx.fillRect(0, 0, this.canvasWidth, headHeight-2)
+      ctx.restore()
+      ctx.drawImage(utils.faction[this.deckDetail.faction].image, 7, 7, 38, 38)
+      // 绘制头部描述
+      ctx.save()
+      ctx.font = 'normal bold 15px sans-serif';
+      ctx.textAlign = 'left'
+      ctx.setFillStyle('#fff')
+      ctx.fillText(this.deckDetail.cname, 52, 23)
+      ctx.restore()
+      ctx.save()
+      ctx.drawImage(this.dustImage, 52, 30, 10, 14)
+      ctx.font = 'normal normal 12px sans-serif';
+      ctx.setFillStyle('#fff')
+      ctx.fillText(this.deckDetail.dust_cost, 64, 42)
+      let deckMode = this.deckDetail.mode?this.deckDetail.mode:'Standard'
+      ctx.drawImage(utils.deckModeImg(deckMode), this.canvasWidth-50, 30, 15, 15)
+      let mode = ''
+      if (deckMode.toLowerCase() === 'wild') {
+        mode = '狂野'
+      } else {
+        mode = '标准'
+      }
+      ctx.fillText(mode, this.canvasWidth-32, 42)
+      ctx.restore()
+      console.log('头部绘制完成')
+
+      // 绘制卡牌主体部分
+      let grd=ctx.createLinearGradient(27,0,136,0);
+      grd.addColorStop(0, "#313109")
+      grd.addColorStop(.2, "#313131")
+      grd.addColorStop(.83, "rgba(49,49,49,00)")
+      grd.addColorStop(1, "rgba(49,49,49,00)")
+      let pages = getCurrentPages();
+      for (let index in formatData) {
+        if (formatData.hasOwnProperty(index)) {
+          // 绘制费用和稀有度
+          ctx.save()
+          ctx.beginPath()
+          let color = rarityColor.common
+          switch(formatData[index].rarity) {
+            case 'RARE': color = rarityColor.rare; break;
+            case 'EPIC': color = rarityColor.epic; break;
+            case 'LEGENDARY': color = rarityColor.legendary; break
+            default: color = rarityColor.common;
+          }
+          ctx.setFillStyle(color)
+          ctx.fillRect(0, headHeight+index*tileHeight, 27, 29)
+          // 费用
+          ctx.font = 'normal bold 14px sans-serif';
+          ctx.textAlign = 'center'
+          ctx.setFillStyle('#fff')
+          ctx.fillText(formatData[index].cost, 14, headHeight+index*tileHeight+20)
+          ctx.closePath()
+          ctx.restore()
+          // 绘制卡牌tile图片
+          let res = await getImageInfoAsync(formatData[index].img)
+          if (pages[pages.length-1].route !== 'pages/decks/deckDetail/index') {
+            console.log('not canvas page')
+            return
+          }
+          let tileRatio = res.height/29
+          if (formatData[index].count !== 1) {
+            ctx.drawImage(res.path, 30, 0, 100*tileRatio, res.height, 43, headHeight+index*tileHeight, 100, 29) //27+13,费用框占27px，间隔13px，宽度100
+          } else {
+            ctx.drawImage(res.path, 0, 0, 122*tileRatio, res.height, 43, headHeight+index*tileHeight, 122, 29)
+          }
+          // 绘制卡牌张数
+          if (formatData[index].count !== 1) {
+            ctx.save()
+            ctx.setFillStyle('#313131')
+            ctx.fillRect(143, headHeight+index*tileHeight, 22, 29)
+            ctx.font = 'normal bolder 13px sans-serif';
+            ctx.textAlign = 'center'
+            ctx.setFillStyle('#f4d442')
+            ctx.fillText(formatData[index].count, 154, headHeight+index*tileHeight+19)
+            ctx.restore()
+          }
+          // 绘制卡牌蒙版
+          ctx.fillStyle = grd
+          ctx.fillRect(27, headHeight+index*tileHeight, 136, 29)
+          // 绘制卡牌名
+          ctx.save()
+          ctx.font = 'normal bold 12px sans-serif';
+          ctx.textAlign = 'left'
+          ctx.setFillStyle('#fff')
+          ctx.fillText(formatData[index].cname, 32, headHeight+index*tileHeight+19)
+          ctx.restore()
+        }
+      }
+      // 绘制底部
+      ctx.save()
+      ctx.setFillStyle('#2C3E50')
+      ctx.fillRect(0, cardListHeight+headHeight+2, this.canvasWidth, bRectHeight)
+      ctx.font = 'normal normal 12px sans-serif';
+      ctx.textAlign = 'center'
+      ctx.textBaseline = 'middle'
+      ctx.setFillStyle('#fff')
+      ctx.fillText('微信小程序：炉石传说情报站', this.canvasWidth/2, cardListHeight+headHeight+bRectHeight/2+2)
+      ctx.restore()
+
+      let _this = this
+      ctx.draw(false, function(e) {
+        console.log(e)
+        setTimeout(function() {
+          _this.saveCanvasImg()
+        }, 1000)
+      })
+
+    },
+    saveCanvasImg() {
+      let pages = getCurrentPages();
+      if (pages[pages.length-1].route !== 'pages/decks/deckDetail/index') {
+        return
+      }
+      let destWidth = 219
+      let destHeight = this.canvasHeight*219/this.canvasWidth
+      // let destWidth = 219 * 750 / wx.getSystemInfoSync().windowWidth
+      // let destHeight = (this.canvasHeight * 219 / this.canvasWidth) * 750 / wx.getSystemInfoSync().windowWidth
+      wx.canvasToTempFilePath({
+        canvasId: 'deck-pic',
+        destWidth: destWidth,
+        destHeight: destHeight,
+        quality: 1,
+        success(res) {
+          wx.saveImageToPhotosAlbum({
+            filePath: res.tempFilePath,
+            success(res) {
+              wx.hideLoading()
+              wx.showToast({
+                title: '图片已保存到相簿',
+                duration: 2000
+              })
+            },
+            fail(err) {
+              wx.hideLoading()
+              wx.showToast({
+                title: '图片保存失败',
+                icon: 'none',
+                duration: 2000
+              })
+            }
+          })
+        },
+        fail(err) {
+          console.log('error', err)
+          wx.hideLoading()
+          wx.showToast({
+            title: '图片生成失败',
+            icon: 'none',
+            duration: 2000
+          })
+        }
+      })
+    },
+    openCompareDeckModal() {
+      this.$refs.cDeckModal.showModal()
+    },
+    handleClearDeckModal() {
+      this.$store.commit('clearDecks')
+    },
+    handleDeckCompare() {
+      console.log('开始对比卡组')
+      console.log(this.compareDeck1, this.compareDeck2)
+      wx.navigateTo({
+        url: `/pages/decks/compareDeck/index`
+      })
+    },
+    handleAddDeck1() {
+      this.$store.commit('setFirstDeck', this.deckDetail)
+    },
+    handleAddDeck2() {
+      this.$store.commit('setSecondDeck', this.deckDetail)
+    },
+    showColumn(canvasId,chartData){
+    	barChart=new uCharts({
+    		$this:_this,
+    		canvasId: canvasId,
+    		type: 'column',
+    		legend:false,
+    		fontSize:11,
+    		background:'#FFFFFF',
+    		pixelRatio:_this.pixelRatio,
+    		animation: false,
+    		categories: chartData.categories,
+    		series: chartData.series,
+        yAxis: {
+          max: 10,
+          disabled:true
+        },
+    		width: _this.cWidth*_this.pixelRatio,
+    		height: _this.cHeight*_this.pixelRatio,
+        extra: {
+        	column: {
+        		type:'group',
+        		width: _this.cWidth*_this.pixelRatio*0.45/chartData.categories.length
+        	}
+        }
+    	});
+      barChart.addEventListener('renderComplete', () => {
+        setTimeout(() => {
+          wx.canvasToTempFilePath({
+            width: _this.cWidth*_this.pixelRatio,
+            height: _this.cHeight*_this.pixelRatio,
+            canvasId: 'canvasColumn',
+            success(res) {
+              console.log(res.tempFilePath)
+              _this.costChartImg = res.tempFilePath
+            },
+            fail(err) {
+              console.log(err)
+            }
+          })
+        }, 1000)
+      });
+    }
+  },
+  async mounted() {
+    setTimeout(() => {
+      this.$store.commit('setShowBubbleFlag', false)
+    }, 4000)
+    this.recordID = this.$root.$mp.query.id
+    this.deckID = this.$root.$mp.query.deckID
+    this.deckMode = this.$root.$mp.query.mode?this.$root.$mp.query.mode:'Standard'
+    // this.decksName = this.$store.state.cards.decksName
+    if (this.decksName.length === 0) {
+      this.decksName = await this.$store.dispatch('getDecksName')
+    }
+    this.trending = !!this.$root.$mp.query.trending
+    this.collected = !!this.$root.$mp.query.collected
+    await this.genDeckData()
+  },
+  onLoad() {
+    _this = this;
+    this.cWidth=uni.upx2px(750);
+    this.cHeight=uni.upx2px(300);
+  },
+  onPullDownRefresh() {
+    // 下拉刷新要把json字符串转换为对象，否则getDeckData时操作对象会报错
+    this.costChartData = JSON.parse(this.costChartData)
+    this.genDeckData()
+  },
+  onShareAppMessage(res) {
+    let sharePath = ''
+    if (this.recordID) {
+      sharePath: `/pages/decks/deckDetail/index?recordID=${this.recordID}`
+    } else if (this.deckID) {
+      sharePath: `/pages/decks/deckDetail/index?deckID=${this.deckID}`
+    }
+    return {
+      title: this.deckDetail.cname,
+      path: sharePath
+    }
+  },
+}
+</script>
+<style lang="scss" scoped>
+@import '../../../style/color';
+
+.container {
+  width: 100%;
+  .banner {
+    position: relative;
+    width: 100%;
+    height: 400rpx;
+    overflow: hidden;
+    background-size: 100%;
+    .bubble {
+      position: absolute;
+      right:5px;
+      top:10px;
+    }
+    .overview {
+      position: relative;
+      width: 100%;
+      padding: 95rpx 0 34rpx;
+      box-sizing: border-box;
+      z-index: 1;
+      .deck-name {
+        position: relative;
+        width: 100%;
+        margin-left: 40rpx;
+        .icon {
+          position: relative;
+          float: left;
+          width: 88rpx;
+          height: 88rpx;
+          img {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 50%;
+            transform: translateY(-50%);
+          }
+        }
+        .name {
+          height: 100%;
+          margin-left: 107rpx;
+          color: #fff;
+          .cname {
+            height:50rpx;
+            line-height:50rpx;
+            font-size: 25px;
+          }
+          .dust-cost {
+            position: relative;
+            height:44rpx;
+            line-height:44rpx;
+            margin-top: 5rpx;
+            font-size: 12px;
+            img {
+              position: absolute;
+              width: 23rpx;
+              height: 32rpx;
+              top: 50%;
+              transform: translateY(-50%);
+            }
+            p {
+              height: 100%;
+              line-height: 44rpx;
+              display: inline-block;
+              margin-left: 28rpx;
+            }
+          }
+        }
+      }
+      .desc {
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: nowrap;
+        padding: 0 30rpx;
+        margin-top:34rpx;
+        box-sizing: border-box;
+        .desc-item {
+          position: relative;
+          width: 172rpx;
+          height: 130rpx;
+          color: white;
+          text-align: center;
+          .item-name {
+            margin-top: 21rpx;
+            font-size: 13px;
+          }
+          .item-meta {
+            margin-top: 7rpx;
+            font-weight: bold;
+            font-size: 16px;
+          }
+        }
+      }
+      .archeBtn {
+        position: absolute;
+        width: 154rpx;
+        height: 54rpx;
+        line-height: 54rpx;
+        right: 30rpx;
+        top: 123rpx;
+        padding-left: 20rpx;
+        color: #fff;
+        border: 1rpx solid rgba(255,255,255,0.50);
+        border-radius: 27px;
+        font-size: 13px;
+        background: rgba(0,0,0,0.20);
+      }
+    }
+  }
+  .loading {
+    position: relative;
+    height: 300rpx;
+  }
+  .card-list {
+    /*margin: 0 30rpx;*/
+    .capsule {
+      position: relative;
+      display:inline-block;
+      /*width: 128rpx;*/
+      height: 48rpx;
+      line-height: 48rpx;
+      padding:0 18rpx;
+      margin-right: 10rpx;
+      text-align: center;
+      font-size: 13px;
+      color: #666;
+      border: 1rpx solid #ddd;
+      border-radius: 32rpx;
+      box-sizing: border-box;
+      .icons {
+        position:absolute;
+        display: inline-block;
+        width: 18rpx;
+        height: 18rpx;
+        top:50%;
+        transform:translateY(-50%);
+        border-radius: 9rpx;
+      }
+      .name {
+        margin:0 5rpx 0 25rpx;
+      }
+      .value {
+        color: #000;
+        font-weight: bold;
+      }
+    }
+    .rarity-panel {
+      margin-top: 30rpx;
+    }
+    .type-panel {
+      margin-top: 15rpx;
+      .capsule {
+        .name {
+          margin: 0 5rpx;
+        }
+      }
+    }
+    .deck-code {
+      position: relative;
+      height: 64rpx;
+      margin-top: 20rpx;
+      margin-bottom: 10rpx;
+      border-radius: 32rpx;
+      box-sizing: border-box;
+      button {
+        float: right;
+        height: 100%;
+        line-height: 64rpx;
+        width: 207rpx;
+        padding: 0;
+        font-size: 13px;
+        color: white;
+        background-color: $palette-blue;
+        border-radius: 37px;
+        margin-left: 18rpx;
+        &:after {
+          border: none;
+        }
+      }
+      .code {
+        height: 100%;
+        line-height: 64rpx;
+        display: inline-block;
+        width: 467rpx;
+        color: #666;
+        font-size: 14px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        border-radius: 32px;
+        background-color: #f8f8f8;
+        padding: 0 21rpx 0 13rpx;
+        box-sizing: border-box;
+        text-align: center;
+        span {
+          width: 433rpx;
+        }
+      }
+    }
+  }
+  .data-chart {
+    width: 100%;
+    overflow: hidden;
+    margin-bottom: 30rpx;
+    /*margin: 20rpx;*/
+    .chart-text {
+      height:27px;
+      line-height:27px;
+      font-size:14px;
+    }
+  }
+  .charts {
+  	width: 100%;
+  	height: 300upx;
+  	background-color: #FFFFFF;
+  }
+  .separator {
+    width: 100%;
+    box-sizing: border-box;
+    border-bottom: 1rpx solid #eee;
+    margin: 30rpx 0;
+  }
+  .footer {
+    position: fixed;
+    bottom: 0;
+    background-color: white;
+    z-index: 20;
+  }
+  .float-btn {
+    position: fixed;
+    bottom: 50px;
+    right: 20px;
+  }
+}
+</style>
