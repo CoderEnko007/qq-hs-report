@@ -13,7 +13,6 @@ const compare = {
       state.compareDeck2 = utils.deepCopy(deck)
     },
     clearDecks(state) {
-      console.log('clearDecks')
       state.compareDeck1 = null
       state.compareDeck2 = null
     }

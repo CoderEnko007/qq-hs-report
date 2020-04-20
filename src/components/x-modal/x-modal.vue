@@ -8,8 +8,8 @@
 				
 			</slot>
 			<slot name='text'>
-				<view class="modal-main modal-text-center">
-					{{text}}
+				<view class="modal-main">
+					<div v-html="text"></div>
 				</view>
 			</slot>
 			<view class="modal-row modal-border-top">

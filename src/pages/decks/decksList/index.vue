@@ -33,9 +33,9 @@
     </div>
     <div class="panel panel-list">
       <DecksBoard :list="deckList" :last_30_days="decksFilter.last_30_days" @itemClick="handleDeckClick"></DecksBoard>
-      <load-more v-if="more" :loading=true />
-      <load-more v-else-if="!deckList.length" :nodata=true />
-      <load-more v-else :nomore=true />
+      <load-more v-if="more" :loading='true' />
+      <load-more v-else-if="!deckList.length" :nodata='true' />
+      <load-more v-else :nomore='true' />
     </div>
   </div>
 </template>

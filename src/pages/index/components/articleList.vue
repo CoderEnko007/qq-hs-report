@@ -3,9 +3,9 @@
              scroll-y="true"
              @scrolltolower='scrollToBottom'
              @scrolltoupper="scrollToTop"
-             :style="{height: winHeight-navHeight-41+'px'}">
-  <div v-for="(item, index) in list" :key="item.id" @click="handleBoardClick(item)">
-    <div class="card-board">
+             :style="{height: winHeight-navHeight-90+'px'}">
+  <div v-for="(item, index) in list" :key="item.id" >
+    <div class="card-board" @click="handleBoardClick(item)">
       <div class="cover">
         <img :src="item.cover" mode="aspectFill">
       </div>
@@ -33,13 +33,13 @@
         </div>
       </div>
     </div>
-    <div class="card-board" style="padding: 0;" v-if="index===2">
+    <div class="card-board" style="padding: 0;" v-if="index===1">
       <ad unit-id="c3e47e2633322e1991d086690db08b82" type="card"></ad>
     </div>
   </div>
-  <load-more v-if="loading" :loading=true />
-  <load-more v-else-if="nodata" :nodata=true />
-  <load-more v-else :nomore=true />
+  <load-more v-if="loading" :loading='true' />
+  <load-more v-else-if="nodata" :nodata='true' />
+  <load-more v-else :nomore='true' />
 </scroll-view>
 </template>
 <script>

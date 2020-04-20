@@ -1,12 +1,6 @@
 <template>
   <div class="container">
-    <nav-bar background="#eff3f4"></nav-bar>
-    <div class="swiper">
-      <div class="notice-bar" v-show="noticeContent.display">
-        <cmd-notice-bar scrollable :text="noticeText.text" mode="close" @click="handleNoticeClick"></cmd-notice-bar>
-      </div>
-      <SwiperBanner :banners="banners" :date="report_date" @swiperClick="handleBannerClick" v-if="banners"></SwiperBanner>
-    </div>
+    <nav-bar></nav-bar>
     <div class="panel-tab">
       <block v-for="(item,index) in tabbar" :key="item.id">
         <div :id="index" :class="{'tab-item': true, 'tab-item-active': activeIndex==index}" @click="handleTabBarClick">
@@ -18,10 +12,16 @@
       <swiper class="content" :easing-function="easeInOutCubic" :duration="100" :style="'height:'+contentHeight" @change="swiperChange"
        :current="currentTab">
         <swiper-item>
+          <div class="swiper">
+            <div class="notice-bar" v-show="noticeContent.display">
+              <cmd-notice-bar scrollable :text="noticeText.text" mode="close" @click="handleNoticeClick"></cmd-notice-bar>
+            </div>
+            <SwiperBanner :banners="banners" :date="report_date" @swiperClick="handleBannerClick" v-if="banners"></SwiperBanner>
+          </div>
           <div class="rank-panel">
             <div class="headline">
               <span class="title">职业排名</span>
-              <div class="mode-filter">
+              <div class="head-picker">
                 <picker mode="selector" :value="modeFilter.selectedItem" :range="modePickerList" @change="handleModeChange">
                   <span class='selector-item'>{{modeFilter.list[modeFilter.selectedItem].text}}</span>
                   <span class="iconfont" :style="{'vertical-align': 'middle'}">&#xe668;</span>
@@ -38,10 +38,13 @@
             <div class="content">
               <RankBoard :list="rankData[selectedGameType]" :mode="modeFilter.list[modeFilter.selectedItem].value"></RankBoard>
             </div>
+            <!--<div class="data-vision" @click="handleHSVisionClick">-->
+              <!--<img class="btn-img" src="/static/icons-v2/trending.png" mode="aspectFit">-->
+              <!--<span class="text">职业强度趋势</span>-->
+              <!--<span class="iconfont">&#xe600;</span>-->
+            <!--</div>-->
           </div>
-          <div class="ads" style="margin: 10px 0 0 0">
-            <ad unit-id="0f0d628da3719f9bab62aef1e73d7980" type="feeds"></ad>
-          </div>
+          <ad unit-id="0f0d628da3719f9bab62aef1e73d7980" type="feeds"></ad>
           <div class="tier-panel">
             <div class="headline">
               <span class="title">强度排行</span>
@@ -56,9 +59,14 @@
                 <span>导出日报</span>
               </div>
             </div>
+           <!-- <div class="data-vision" style="margin: 0 30rpx;" @click="handleHSVisionTierClick">
+              <img class="btn-img" src="/static/icons-v2/trending.png" mode="aspectFit">
+              <span class="text">环境结构分布</span>
+              <span class="iconfont">&#xe600;</span>
+            </div> -->
             <div class="tier-content">
               <div class="tier-block" v-for="(tier, index) in tierList" :key="tier.name">
-                <TierList :tierData="tier" @itemClick="handleTierClick"></TierList>
+                <TierList :tierData="tier" @itemClick="handleTierClick" @onCollapse="handleCollapse"></TierList>
               </div>
             </div>
           </div>
@@ -87,7 +95,6 @@
   import RankBoard from '@/components/RankBoard'
   import TierList from '@/components/TierList'
   import articlePage from './components/articlePage'
-
 
   export default {
     components: {
@@ -149,9 +156,13 @@
             {text: '传说分段', rank_range: 'Legend_Only'}
           ]
         },
+        tempSelectedItem: 0,
         // canvas参数
         canvasWidth: 375,
         canvasHeight: 200,
+        adHeight: 187,
+        collapseHeight: 0,
+        videoAd: null
       }
     },
     computed: {
@@ -160,11 +171,13 @@
         'winHeight',
         'navHeight',
         'noticeContent',
-        'decksName'
+        'decksName',
+        'barHeight'
       ]),
       contentHeight() {
-        if (this.activeIndex === 0) {
-          return 578-125 + 60 * this.tierListNum + 25 + 'px'
+        if (this.activeIndex == 0) {
+          return 471 + this.adHeight + this.barHeight + 51 + 60 * this.tierListNum + 65 - this.collapseHeight + 'px'
+          // return 471 + 150 + 51 + 60 * this.tierListNum + 25 + 'px'
         } else {
           return this.winHeight - this.navHeight - 41 + "px"
         }
@@ -181,6 +194,76 @@
       },
     },
     methods: {
+      async initVideoAds() {
+        if (qq.createRewardedVideoAd) {
+          this.videoAd = qq.createRewardedVideoAd({
+            adUnitId: 'de472ebbad6af5063148af11428da951'
+          })
+          this.videoAd.onClose(async (status) => {
+            console.log('激励视频关闭', status)
+            if (status && status.isEnded || status === undefined) {
+              let now = new Date()
+              try {
+                wx.setStorageSync('ads_video_date', new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()/1000)
+              } catch (e) {
+                console.log(e)
+              }
+              this.rangePicker.selectedItem = this.tempSelectedItem
+              this.genArchetypeList()
+            } else {
+              wx.showToast({
+                title: '没有完整播放视频哦，喵。。。',
+                icon: 'none',
+                duration: 2500
+              })
+            }
+          })
+          this.videoAd.onError((res) => {
+            console.log('激励视频错误', res)
+            this.rangePicker.selectedItem = this.tempSelectedItem
+            this.genArchetypeList()
+            wx.showToast({
+              title: '出了点小问题，无法播放激励视频',
+              icon: 'none',
+              duration: 2500
+            })
+          })
+        }
+      },
+      async playVideoAds(index) {
+        this.tempSelectedItem = index
+        let videoAdUseable = true //wx.canIUse('createRewardedVideoAd')
+        if (videoAdUseable) {
+          if (this.videoAd) {
+            this.videoAd.show().catch(() => {
+              // 失败重试
+              this.videoAd.load()
+                .then(() => videoAd.show())
+                .catch(err => {
+                  console.log('激励视频 广告显示失败')
+                  this.rangePicker.selectedItem = this.tempSelectedItem
+                  this.genArchetypeList()
+                })
+            })
+          }
+        } else {
+          wx.showToast({
+            title: '微信版本过低，无法播放激励视频',
+            icon: 'none',
+            duration: 2500
+          })
+          this.rangePicker.selectedItem = this.tempSelectedItem
+          this.genArchetypeList()
+        }
+      },
+      handleAdError(e) {
+        console.log('ad error', e)
+        this.adHeight = 0
+      },
+      handleAdLoaded(e) {
+        console.log('ad loaded', e)
+        this.adHeight = 107*3+75
+      },
       compareFunction(key) {
         return function(obj1, obj2) {
           let formatKey = key.replace('-', '')
@@ -304,8 +387,57 @@
         this.selectedGameType = item.mode
       },
       handleRankRangeChange(e) {
-        this.rangePicker.selectedItem = e.mp.detail.value
-        this.genArchetypeList()
+        if (e.mp.detail.value!=='0' && e.mp.detail.value!==this.rangePicker.selectedItem) {
+          try {
+            let value = wx.getStorageSync('ads_video_date')
+            let now = new Date()
+            let today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()/1000
+            if (today === value) {
+              // Do something with return value
+              this.rangePicker.selectedItem = e.mp.detail.value
+              this.genArchetypeList()
+            } else {
+              wx.showModal({
+                title: '提示',
+                content: '播放完整激励视频即可解锁该功能, 限当日。（默认会播放声音，建议降低手机音量）',
+                success: res => {
+                  if (res.confirm) {
+                    this.playVideoAds(e.mp.detail.value)
+                  } else if (res.cancel) {
+                    console.log('用户点击取消')
+                  }
+                }
+              })
+            }
+          } catch (e) {
+            // Do something when catch error
+            this.rangePicker.selectedItem = e.mp.detail.value
+            this.genArchetypeList()
+          }
+        } else {
+          this.rangePicker.selectedItem = e.mp.detail.value
+          this.genArchetypeList()
+        }
+      },
+      handleHSVisionClick() {
+        wx.navigateToMiniProgram({
+          appId: 'wx010ca9734f850748',
+          path: `/pages/rank/main`,
+          success(res) {
+            // 打开成功
+            console.log(res)
+          }
+        })
+      },
+      handleHSVisionTierClick() {
+        wx.navigateToMiniProgram({
+          appId: 'wx010ca9734f850748',
+          path: `/pages/structure/main`,
+          success(res) {
+            // 打开成功
+            console.log(res)
+          }
+        })
       },
       handleExport() {
         console.log('handleExport')
@@ -319,6 +451,13 @@
         uni.navigateTo({
           url: `/pages/decks/archetypeDetail/index?name=${item.archetype_name}`
         })
+      },
+      handleCollapse(obj) {
+        if (!obj.show) {
+          this.collapseHeight += obj.num*60
+        } else {
+          this.collapseHeight -= obj.num*60
+        }
       },
 
       // canvas 绘图
@@ -381,7 +520,7 @@
         ctx.font = 'normal bold 12px sans-serif';
         ctx.setFillStyle('#433e88')
         ctx.textAlign = 'center'
-        ctx.fillText('微信小程序：炉石传说情报站', this.canvasWidth/2, 20)
+        ctx.fillText('QQ小程序：炉石传说情报站', this.canvasWidth/2, 20)
         ctx.setFillStyle('#000')
         ctx.font = 'normal bold 16px sans-serif';
         ctx.fillText('卡组强度排行', this.canvasWidth/2, 45)
@@ -563,13 +702,19 @@
       this.genRankData()
       this.genArchetypeList()
       this.genNotice()
+      this.initVideoAds()
+      // this.$refs.articlePage.genDataList(true)
     },
     onPullDownRefresh() {
       this.genBanners()
       this.genRankData()
       this.genArchetypeList()
+      this.genNotice()
       this.$refs.articlePage.genDataList(true)
       this.$store.dispatch('getDecksName')
+    },
+    onShow() {
+      this.$refs.articlePage.genDataList(true)
     },
     onShareAppMessage(res) {
       return {
@@ -581,163 +726,173 @@
 </script>
 
 <style scoped lang="scss">
-  @import '../../style/color';
-
-  .container {
-    .panel-tab {
-      width: 100%;
-      height: 80rpx;
-      display: flex;
-      flex-wrap: nowrap;
-      justify-content: space-around;
-      background-color: #fff;
-      border-bottom: 1rpx solid #eee;
-      z-index: 2;
-
-      .tab-item {
-        position: relative;
+@import '../../style/color';
+.container {
+  .panel-tab {
+    position: fixed;
+    width: 100%;
+    height: 70rpx;
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: space-around;
+    background-color: #fff;
+    border-bottom: 1rpx solid #eee;
+    z-index: 2;
+    .tab-item {
+      position: relative;
+      height: 100%;
+      width: 232rpx;
+      line-height: 70rpx;
+      font-size: 15px;
+      color: #666;
+      text-align: center;
+      &:after {
+        display: none;
+        content: '';
+        position: absolute;
+        width: 53rpx;
+        height: 4rpx;
+        bottom: 0;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: $palette-blue;
+      }
+    }
+    .tab-item-active {
+      color: $palette-blue;
+      font-weight: bold;
+      &:after {
+        display: block;
+        animation: tabBottomIn .4s;
+      }
+    }
+  }
+  .tab-container {
+    margin-top: 85rpx;
+    width: 100%;
+    z-index: 1;
+  }
+  .rank-panel {
+    padding: 0 30rpx;
+    .headline {
+      height: 96rpx;
+      .mode-filter {
+        display: inline-block;
+        height: 24rpx;
+        line-height: 24rpx;
+        margin-left: 8px;
+        font-size: 19rpx;
+        color: #999;
+        border: 1rpx solid #ddd;
+        border-radius: 12px;
+        padding: 3rpx 10rpx;
+      }
+      .btn-group {
+        position: absolute;
         height: 100%;
-        width: 232rpx;
-        line-height: 80rpx;
-        font-size: 15px;
-        color: #666;
-        text-align: center;
-
-        &:after {
-          display: none;
-          content: '';
-          position: absolute;
-          width: 53rpx;
-          height: 4rpx;
-          bottom: 0;
-          left: 50%;
-          transform: translateX(-50%);
-          background-color: $palette-blue;
-        }
-      }
-
-      .tab-item-active {
-        color: $palette-blue;
-        font-weight: bold;
-
-        &:after {
-          display: block;
-          animation: tabBottomIn .4s;
-        }
-      }
-    }
-
-    .tab-container {
-      width: 100%;
-      z-index: 1;
-    }
-
-    .rank-panel {
-      padding: 0 30rpx;
-
-      .headline {
-        height: 96rpx;
-
-        .mode-filter {
-          display: inline-block;
-          height: 24rpx;
-          line-height: 24rpx;
-          margin-left: 8px;
-          font-size: 19rpx;
-          color: #999;
-          border: 1rpx solid #ddd;
-          border-radius: 12px;
-          padding: 3rpx 10rpx;
-        }
-
-        .btn-group {
-          position: absolute;
+        top: 50%;
+        right: 0;
+        transform: translateY(-50%);
+        display: flex;
+        justify-content: space-between;
+        flex-wrap: nowrap;
+        .btn-block {
+          position: relative;
           height: 100%;
-          top: 50%;
-          right: 0;
-          transform: translateY(-50%);
           display: flex;
           justify-content: space-between;
           flex-wrap: nowrap;
-
-          .btn-block {
-            position: relative;
+          .btn-img {
+            position: absolute;
+            width: 32rpx;
+            height: 32rpx;
+            top: 50%;
+            transform: translateY(-50%);
+          }
+          button {
             height: 100%;
-            display: flex;
-            justify-content: space-between;
-            flex-wrap: nowrap;
-
-            .btn-img {
-              position: absolute;
-              width: 32rpx;
-              height: 32rpx;
-              top: 50%;
-              transform: translateY(-50%);
-            }
-
-            button {
-              height: 100%;
-              line-height: 96rpx;
-              margin-left: 40rpx;
-              font-size: 14px;
-              font-weight: normal;
-              color: #999;
-            }
-
-            .btn-active {
-              color: $palette-blue;
-              font-weight: bold;
-            }
-
-            .separator {
-              width: 25rpx;
-              height: 16px;
-              line-height: 96rpx;
-              text-align: center;
-              font-size: 14px;
-              color: #EEEEEE;
-            }
+            line-height: 96rpx;
+            margin-left: 40rpx;
+            font-size: 14px;
+            font-weight: normal;
+            color: #999;
+          }
+          .btn-active {
+            color: $palette-blue;
+            font-weight: bold;
+          }
+          .separator {
+            width: 25rpx;
+            height: 16px;
+            line-height: 96rpx;
+            text-align: center;
+            font-size: 14px;
+            color: #EEEEEE;
           }
         }
       }
     }
-
-    .tier-panel {
-      /*padding: 10px 0;*/
-      .headline {
-        padding: 0 30rpx;
-        .headline-meta {
-          height: 24rpx;
-          line-height: 24rpx;
-          margin-left: 8px;
-          font-size: 19rpx;
-          color: #999;
-          border: 1rpx solid #ddd;
-          border-radius: 12px;
-          padding: 3rpx 10rpx;
-        }
+  }
+  .tier-panel {
+    padding: 10px 0;
+    .headline {
+      padding: 0 30rpx;
+      .headline-meta {
+        height: 24rpx;
+        line-height: 24rpx;
+        margin-left: 8px;
+        font-size: 19rpx;
+        color: #999;
+        border: 1rpx solid #ddd;
+        border-radius: 12px;
+        padding: 3rpx 10rpx;
       }
     }
   }
-  .head-btn {
-    position: absolute;
-    top: 50%;
-    right: 55rpx;
-    transform: translateY(-50%);
-    line-height: 30px;
-    font-size: 12px;
-    color: $palette-blue;
+  .data-vision {
+   position: relative;
+   margin-top: 10px;
+   background: #FAFAFA;
+   line-height: 45px;
+   border-radius: 24rpx;
+   img {
+     position: absolute;
+     top: 50%;
+     transform: translateY(-50%);
+     margin-left: 10px;
+     width: 52rpx;
+     height: 52rpx;
+   }
+   .text {
+     font-size: 16px;
+     margin-left: 44px;
+   }
+   .iconfont {
+     position: absolute;
+     top: 50%;
+     transform: translateY(-50%);
+     right: 10px;
+   }
+  }
+}
+.head-btn {
+  position: absolute;
+  top: 50%;
+  right: 55rpx;
+  transform: translateY(-50%);
+  line-height: 30px;
+  font-size: 12px;
+  color: $palette-blue;
+}
+@keyframes tabBottomIn {
+  from {
+    width: 100%;
+    opacity: 0
   }
 
-  @keyframes tabBottomIn {
-    from {
-      width: 100%;
-      opacity: 0
-    }
-
-    to {
-      width: 53rpx;
-      opacity: 1
-    }
+  to {
+    width: 53rpx;
+    opacity: 1
   }
+}
 </style>

@@ -240,6 +240,24 @@ export function getDeckName(params, limit=1000) {
   })
 }
 
+export function test(params, limit=1000, page=0, orderBy='-game_count') {
+  return new Promise((resolve, reject) => {
+    let tableObj = new qq.BaaS.TableObject(tableID.standDecksTableID)
+    if (params.mode && params.mode === 'Wild') {
+      tableObj = new qq.BaaS.TableObject(tableID.wildDecksTableID)
+    }
+    let cardQuery = new qq.BaaS.Query()
+    if (params && params.card) {
+      cardQuery.in('card_array', params.card)
+    }
+    tableObj.setQuery(cardQuery).orderBy(orderBy).limit(limit).offset(page*limit).find().then(res => {
+      resolve(res.data)
+    }, err => {
+      reject(err)
+    })
+  })
+}
+
 export function getDeckList(params, limit=20, page=0, orderBy='-game_count') {
   return new Promise((resolve, reject) => {
     let tableObj = new qq.BaaS.TableObject(tableID.standDecksTableID)
@@ -269,7 +287,11 @@ export function getDeckList(params, limit=20, page=0, orderBy='-game_count') {
     if (params && params.collectList) {
       collectionQuery.in('deck_id', params.collectList)
     }
-    let query = qq.BaaS.Query.and(timeRangeQuery, modeQuery, factionQuery, archetypeQuery, collectionQuery)
+    let cardQuery = new wx.BaaS.Query()
+    if (params && params.card) {
+      cardQuery.in('card_array', params.card)
+    }
+    let query = wx.BaaS.Query.and(timeRangeQuery, modeQuery, factionQuery, archetypeQuery, collectionQuery, cardQuery)
     tableObj.setQuery(query).orderBy(orderBy).limit(limit).offset(page*limit).find().then(res => {
       resolve(res.data)
     }, err => {
@@ -550,7 +572,17 @@ export function getArticleList(params, limit=10, page=0, orderBy=['-top', '-crea
     if (params && params.mainArticleId) {
       query.compare('main_article', '=', params.mainArticleId)
     }
-    MyContentGroup.setQuery(query).orderBy(orderBy).limit(limit).offset(page*limit).find().then(res => {
+    let searchQuery = new qq.BaaS.Query()
+    if (params && params.search) {
+      let titleQuery = new qq.BaaS.Query()
+      let regExp = new RegExp(params.search, 'i')
+      titleQuery.matches('title', regExp)
+      let authorQuery = new qq.BaaS.Query()
+      authorQuery.matches('author', regExp)
+      searchQuery = qq.BaaS.Query.or(titleQuery, authorQuery)
+    }
+    let queryAll = qq.BaaS.Query.and(query, searchQuery)
+    MyContentGroup.setQuery(queryAll).orderBy(orderBy).limit(limit).offset(page*limit).find().then(res => {
       resolve(res.data)
     }, err => {
       reject(err)
@@ -562,6 +594,19 @@ export function getArticleDetail(params) {
   return new Promise((resolve, reject) => {
     let MyContentGroup = new qq.BaaS.ContentGroup(params.groupID)
     MyContentGroup.getContent(params.contentID).then(res => {
+      resolve(res.data)
+    }, err => {
+      reject(err)
+    })
+  })
+}
+
+export function getDeckCardList(params) {
+  return new Promise((resolve, reject) => {
+    let tableObj = new wx.BaaS.TableObject(tableID.cardsTableID)
+    let query = new wx.BaaS.Query()
+    query.in('dbfId', params.list)
+    tableObj.setQuery(query).limit(30).find().then(res => {
       resolve(res.data)
     }, err => {
       reject(err)

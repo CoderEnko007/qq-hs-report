@@ -33,18 +33,18 @@
       <span class="desc">{{email}}</span>
     </div>
   </div>
-  <!--<div class="block">-->
-    <!--<div class="headline">-->
-      <!--<span class="title">用爱发电</span>-->
-    <!--</div>-->
-    <!--<div class="videoAd" @click="handleVideoClick">-->
-      <!--<span class="text">点击此处播放激励视频(15秒)</span>-->
-      <!--<span class="iconfont play">&#xe697;</span>-->
-    <!--</div>-->
-  <!--</div>-->
-  <!--<div class="ads" v-if="adsOpenFlag">-->
-    <!--<ad unit-id="adunit-3df610deaf7d2cbd"></ad>-->
-  <!--</div>-->
+  <!-- <div class="block">
+    <div class="headline">
+      <span class="title">用爱发电</span>
+    </div>
+    <div class="videoAd" @click="handleVideoClick">
+      <span class="text">点击此处播放激励视频(15秒)</span>
+      <span class="iconfont play">&#xe697;</span>
+    </div>
+  </div> -->
+  <!-- <div class="ads" v-if="adsOpenFlag">
+    <ad unit-id="adunit-3df610deaf7d2cbd"></ad>
+  </div> -->
 </div>
 </template>
 <script>
@@ -74,7 +74,6 @@ export default {
       bannerImg: 'https://cloud-minapp-18282.cloud.ifanrusercontent.com/1gDPyMJP8arlwMXm.png',
       email: 'yf381966217@163.com',
       description: [],
-      interstitialAd: null,
     }
   },
   methods: {

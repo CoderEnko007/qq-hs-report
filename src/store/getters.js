@@ -11,6 +11,7 @@ const getters = {
   entourageParams: state => state.cards.entourageParams,
   navHeight: state => state.settings.navHeight,
   tabHeight: state => state.settings.tabHeight,
+  barHeight: state => state.settings.barHeight,
   isIphoneX: state => state.settings.isIphoneX,
   winWidth: state => state.settings.winWidth,
   winHeight: state => state.settings.winHeight,
@@ -22,6 +23,7 @@ const getters = {
   card_resource: state => state.settings.card_resource,
   ifanr_arena_card_resource: state => state.settings.ifanr_arena_card_resource,
   arenaTableID: state => state.settings.arenaTableID,
+  adNotice:state => state.settings.adNotice,
   compareDeck1: state => state.compare.compareDeck1,
   compareDeck2: state => state.compare.compareDeck2
 }

@@ -4,10 +4,11 @@ const settings = {
   state: {
     navHeight: null,
     tabHeight: null,
+    barHeight: null,
     isIphoneX: false,
     winWidth: null,
     winHeight: null,
-    showBubble: true,
+    showBubble: false,
     fbiVersion: null,
     fbiKey: null,
     fbiFlag: true,
@@ -15,6 +16,7 @@ const settings = {
     card_resource: null,
     ifanr_arena_card_resource: false,
     adsOpenFlag: true,
+    adNotice: null,
   },
   mutations: {
     setAdsOpenFlag: (state, val) => {
@@ -25,6 +27,9 @@ const settings = {
     },
     SET_NAV_HEIGHT: (state, navHeight) => {
       state.navHeight = navHeight
+    },
+    SET_BAR_HEIGHT: (state, barHeight) => {
+      state.barHeight = barHeight
     },
     SET_TAB_HEIGHT: (state, val) => {
       state.tabHeight = val
@@ -55,7 +60,10 @@ const settings = {
     },
     SET_IFANR_ARENA_CARD_RESOURCE: (state, val) => {
       state.ifanr_arena_card_resource = val
-    }
+    },
+    SET_AD_NOTICE: (state, val) => {
+      state.adNotice = val
+    },
   },
   actions: {
     setNavHeight({commit, state}) {
@@ -66,7 +74,9 @@ const settings = {
             let navHeight = res.statusBarHeight + 46;
             // let navHeight = res.statusBarHeight*2+25
             commit('SET_NAV_HEIGHT', navHeight)
-            if (res.model === 'iPhone X') {
+            commit('SET_BAR_HEIGHT', res.statusBarHeight)
+            console.log(res.model)
+            if (res.model.indexOf('iPhone X')>-1) {
               commit('IS_IPHONE_X')
             }
             resolve(navHeight)
@@ -102,6 +112,7 @@ const settings = {
             commit('SET_CARD_RESOURCE', res.objects[0].card_resource)
             commit('SET_ARENA_TABLEID', res.objects[0].arena_table_id)
             commit('SET_IFANR_ARENA_CARD_RESOURCE', res.objects[0].ifanr_arena_card_resource)
+            commit('SET_AD_NOTICE', res.objects[0].ad_notice)
           }
           resolve(res.objects)
         }).catch(err => {

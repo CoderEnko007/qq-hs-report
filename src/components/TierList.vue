@@ -10,7 +10,7 @@
         </div>
       </div>
     </div>
-    <div class="tier-block" v-if="showList">
+    <div class="tier-block" :style="{'margin-top': showListFlag?'0':'-'+listHeight+'px'}">
       <div class="tier-item"
            v-for="(item, index) in genTierList" :key="item.id"
            @click="handleItemClick(item)">
@@ -45,6 +45,9 @@ export default {
     }
   },
   computed: {
+    listHeight() {
+      return this.tierData.list.length*60
+    },
     genTierList() {
       let val = this.tierData
       let deckName = this.$store.state.cards.decksName
@@ -76,6 +79,7 @@ export default {
     },
     handleHeaderClick() {
       this.showListFlag = !this.showListFlag
+      this.$emit('onCollapse', {show: this.showListFlag, num:this.tierData.list.length})
     }
   },
 }
@@ -83,11 +87,14 @@ export default {
 <style lang="scss" scoped>
 @import '../style/color';
 .container {
+  overflow: hidden;
   .tier-header {
     position: relative;
     width: 100%;
     height: 40px;
     overflow: hidden;
+    background:white;
+    z-index:1;
     .tier-title {
       position: absolute;
       width: 100%;
@@ -126,6 +133,7 @@ export default {
     width: 100%;
     /*padding:0 30rpx;*/
     box-sizing:border-box;
+    transition: all .3s ease-in;
     .tier-item {
       position: relative;
       width: 100%;

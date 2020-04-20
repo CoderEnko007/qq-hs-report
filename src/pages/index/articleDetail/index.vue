@@ -40,29 +40,44 @@
           </div>
         </div>
       </div>
-      <div class="other-block">
-        <div class="ads">
-          <ad unit-id="ccc25f11fe77f2e3b071d510335db261"></ad>
+      <div class="other-block" :style="{'padding-bottom': isIphoneX?155+'rpx':115+'rpx'}">
+        <div class="notice" v-if="showAdNotice">
+          <p>{{adNotice}}</p>
         </div>
+        <!--<div class="video-ads" v-if="adsType==='video'">-->
+          <!--<ad unit-id="adunit-658c5ed4c9982d96" ad-type="video" ad-theme="white"></ad>-->
+        <!--</div>-->
+        <!--<div class="ads" v-else>-->
+          <!--<ad unit-id="adunit-2bb4a9cea22fa148"></ad>-->
+          <!--&lt;!&ndash; <ad unit-id="adunit-658c5ed4c9982d96" ad-type="video" ad-theme="white"></ad> &ndash;&gt;-->
+        <!--</div>-->
+        <!--<div class="ads">-->
+        <ad unit-id="be447157a96934fc3ce9995017182938" type="card"></ad>
+        <!--</div>-->
         <copyRight></copyRight>
       </div>
       <div class="footer">
         <FooterMenu :link="detail.link"></FooterMenu>
       </div>
+      <div class="float-btn" :style="{'bottom': isIphoneX?70+'px':50+'px'}">
+        <floatBtnGroup @onCompare="openCompareDeckModal" :badgeCount="badgeCount" showCompare="true"></floatBtnGroup>
+      </div>
+      <compareDeckModal ref="cDeckModal" :currentBtnDeActive='true'></compareDeckModal>
     </div>
   </div>
 </template>
 <script>
-  import uParse from '@/components/gaoyia-parse/parse.vue'
-  import {
-    getArticleDetail,
-    getArticleList
-  } from "../../../api/dbapi";
+  import { mapGetters } from 'vuex'
+  import { getArticleDetail, getArticleList, getSetting } from "../../../api/dbapi";
   import utils from '@/utils'
   import NavBar from '@/components/NavBar'
   import copyRight from '@/components/copyRight'
   import FooterMenu from '@/components/FooterMenu'
   import ArticleSkeleton from '@/components/ArticleSkeleton'
+  import floatBtnGroup from '@/components/floatBtnGroup'
+  import compareDeckModal from '@/components/compareDeckModal'
+  import uParse from '@/components/gaoyia-parse/parse.vue'
+
   export default {
     name: 'articleDetail',
     components: {
@@ -70,7 +85,9 @@
       uParse,
       copyRight,
       FooterMenu,
-      ArticleSkeleton
+      ArticleSkeleton,
+      floatBtnGroup,
+      compareDeckModal
     },
     data() {
       return {
@@ -81,19 +98,30 @@
         mainArticleId: null,
         date: null,
         pageDelayFlag: false,
+        showAdNotice: false,
+        adsType: 'banner'
       }
     },
     computed: {
+      ...mapGetters([
+        'compareDeck1',
+        'compareDeck2',
+        'isIphoneX',
+        'adNotice',
+      ]),
+      badgeCount() {
+        let count = 0
+        count += this.compareDeck1?1:0
+        count += this.compareDeck2?1:0
+        return count
+      },
       dataReady() {
         return this.pageDelayFlag && this.detail
       }
     },
     methods: {
-      cardAdLoaded(e) {
-        console.log('ad success', e)
-      },
-      cardAdError(e) {
-        console.log('ad fail', e)
+      openCompareDeckModal() {
+        this.$refs.cDeckModal.showModal()
       },
       async genArticleDetal() {
         let params = {
@@ -129,10 +157,11 @@
           wx.setClipboardData({
             data: href.replace('http://', ''),
             success: function(res) {
+              wx.hideToast()
               wx.showToast({
                 title: '卡组代码已复制',
                 icon: 'none',
-                duration: 2500,
+                duration: 1500,
               })
             }
           })
@@ -143,11 +172,16 @@
               wx.showToast({
                 title: '不支持链接跳转，已复制到剪贴板',
                 icon: 'none',
-                duration: 2500,
+                duration: 1500,
               })
             }
           })
         }
+      },
+      async getIfanrSettings() {
+        let res = await getSetting()
+        this.showAdNotice = res.objects[0].show_ad_notice
+        this.adsType = res.objects[0].article_ads_type
       }
     },
     async mounted() {
@@ -160,6 +194,7 @@
       this.groupID = this.$root.$mp.query.group_id
       await this.genArticleDetal()
       await this.genSubArticle()
+      await this.getIfanrSettings()
     },
     onShareAppMessage(res) {
       return {
@@ -171,17 +206,14 @@
 </script>
 <style lang="scss" scoped>
   @import '../../../style/color';
-
   .banner {
     width: 100%;
     height: 335rpx;
-
     img {
       width: 100%;
       height: 100%;
     }
   }
-
   .article-detail {
     padding: 20rpx 30rpx 0;
     .title {
@@ -243,11 +275,9 @@
       font-size: 16px;
       text-decoration: underline;
       margin: 25rpx 0 0 0;
-
       .sub-card {
         min-height: 60rpx;
         margin-bottom: 25rpx;
-
         img {
           display: inline-block;
           width: 60rpx;
@@ -255,7 +285,6 @@
           vertical-align: middle;
           margin-right: 10rpx;
         }
-
         .sub-title {
           line-height: 60rpx;
           display: inline-block;
@@ -264,27 +293,40 @@
       }
     }
   }
-
   .separator {
     width: 100%;
     height: 1rpx;
     margin-top: 15rpx;
     background-color: #eee;
   }
-
   .other-block {
-    padding-bottom: 80rpx;
+    padding-bottom: 100rpx;
   }
-
   .footer {
     position: fixed;
     bottom: 0;
+    z-index: 999;
   }
-
   .skeleton-mask {
     position: absolute;
     width: 100%;
     background: white;
     // z-index: 1;
+  }
+  .float-btn {
+    position: fixed;
+    bottom: 50px;
+    right: 20px;
+    z-index: 999;
+  }
+  .notice {
+    font-family: Helvetica, sans-serif;
+    font-size: 14px;
+    color: #666;
+    line-height: 1.8;
+    margin: 0 30rpx;
+  }
+  .video-ads {
+    margin: 10rpx 0;
   }
 </style>

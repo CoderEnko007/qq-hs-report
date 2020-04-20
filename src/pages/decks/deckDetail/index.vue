@@ -1,5 +1,5 @@
 <template>
-  <div class="container">
+  <div class="container" :style="{'padding-bottom': isIphoneX?55+'px':40+'px'}">
     <NavBar :showCapsule="true" navTitle="套牌详情"></NavBar>
     <div class="banner" :style="{'background-image': bannerImg?'url('+bannerImg+')':''}">
       <div class="bubble" :style="{'display': showBubble?'block':'none'}">
@@ -23,61 +23,91 @@
           <span class="iconfont">&#xe600;</span>
         </div>
         <div class="desc">
-          <div class="desc-item" v-show="deckDetail.real_win_rate">
+          <div class="desc-item">
             <p class="item-name">胜率</p>
-            <p class="item-meta font-bold color-light-green" :class="{'color-red': deckDetail.real_win_rate<50}">{{deckDetail.real_win_rate}}%</p>
+            <p class="item-meta font-bold color-light-green" :class="{'color-red': deckDetail.real_win_rate<50}" v-if="deckDetail.real_win_rate">{{deckDetail.real_win_rate}}%</p>
+            <p class="item-meta font-bold color-light-green" :class="{'color-red': deckDetail.win_rate<50}" v-else-if="deckDetail.win_rate">{{deckDetail.win_rate}}%</p>
+            <p class="item-meta font-bold" v-else>N/A</p>
           </div>
-          <div class="desc-item" v-show="deckDetail.game_count">
+          <div class="desc-item">
             <p class="item-name">对局数</p>
-            <p class="item-meta">{{gameCount}}</p>
+            <p class="item-meta" v-if="deckDetail.game_count">{{gameCount}}</p>
+            <p class="item-meta" v-else>N/A</p>
           </div>
-          <div class="desc-item" v-show="deckDetail.duration">
+          <div class="desc-item">
             <p class="item-name">对局时长</p>
-            <p class="item-meta">{{deckDetail.duration}}分钟</p>
+            <p class="item-meta" v-if="deckDetail.duration">{{deckDetail.duration}}分钟</p>
+            <p class="item-meta" v-else>N/A</p>
           </div>
-          <div class="desc-item" v-show="deckDetail.turns">
+          <div class="desc-item">
             <p class="item-name">回合数</p>
-            <p class="item-meta">{{deckDetail.turns}}</p>
+            <p class="item-meta" v-if="deckDetail.turns">{{deckDetail.turns}}</p>
+            <p class="item-meta" v-else>N/A</p>
           </div>
         </div>
       </div>
     </div>
-    <div class="btn-group" :style="{display: deckChecked?'block':'none'}">
+    <div class="btn-group footer" :style="{display: deckChecked?'block':'none'}">
       <FooterMenu showExportBtn="true" showCollectBtn="true"
                   :collected="deckCollected"
                   @collectClick="handleCollection"
                   @exportClick="handleExport"
                   ref="btnGroup"></FooterMenu>
     </div>
-    <div class="card-list" v-if="deckDetail.card_list.length">
-      <div class="headline m-30"><span class="title">套牌组成</span></div>
-      <div class="m-30">
-        <DeckCards :cards="deckDetail.card_list" @cardClick="handleCardClick"></DeckCards>
+    <div v-if="deckDetail.card_list.length">
+      <div class="panel-tab">
+        <block v-for="(item,index) in tabbar" :key="index">
+          <div :id="index" :class="{'tab-item': true, 'tab-item-active': activeIndex==index}" @click="tabBarClick">
+            {{item.text}}
+          </div>
+        </block>
       </div>
-      <div class="rarity-panel m-30">
-        <div class="capsule" v-for="(item, index) in rarityChartData" :key="index" v-if="item.value>0">
-          <div class="icons" :style="{'background-color': item.color}"></div>
-          <span class="name">{{item.cname}}</span>
-          <span class="value">{{item.value}}</span>
+      <div class="card-list" :hidden="activeIndex != 0">
+        <div class="m-30">
+          <DeckCards :cards="deckDetail.card_list" @cardClick="handleCardClick"></DeckCards>
+        </div>
+        <div class="rarity-panel m-30">
+          <div class="capsule" v-for="(item, index) in rarityChartData" :key="index" v-if="item.value>0">
+            <div class="icons" :style="{'background-color': item.color}"></div>
+            <span class="name">{{item.cname}}</span>
+            <span class="value">{{item.value}}</span>
+          </div>
+        </div>
+        <div class="type-panel m-30">
+          <div class="capsule" v-for="(item, index) in typeChartData" :key="index" v-if="item.value>0">
+            <span class="name">{{item.cname}}</span>
+            <span class="value">{{item.value}}</span>
+          </div>
+        </div>
+        <div class="deck-code m-30">
+          <div class="code"><span>{{deckDetail.deck_code}}</span></div>
+          <ticket-report-wrapper style="float: right;">
+            <button @click="copyDeckCode">复制神秘代码</button>
+          </ticket-report-wrapper>
         </div>
       </div>
-      <div class="type-panel m-30">
-        <div class="capsule" v-for="(item, index) in typeChartData" :key="index" v-if="item.value>0">
-          <span class="name">{{item.cname}}</span>
-          <span class="value">{{item.value}}</span>
+      <div class="mulligan-list" :hidden="activeIndex != 1">
+        <div v-if="deckDetail.mulligan && deckDetail.mulligan.length>2">
+          <mulliganList :cList="deckDetail.card_list" :mData="deckDetail.mulligan"></mulliganList>
+        </div>
+        <div class="no-data" v-else>
+          缺少对战数据
         </div>
       </div>
-      <div class="deck-code m-30">
-        <div class="code"><span>{{deckDetail.deck_code}}</span></div>
-        <button @click="copyDeckCode">复制神秘代码</button>
-      </div>
-      <div class="ads" style="margin: 10px 0;">
+      <div class="separator"></div>
+      
+      <div class="separator"></div>
+      <div style="margin: 10px 0;">
         <ad unit-id="48a575a470bd0be8f7c060be1c59465a"></ad>
       </div>
-      <!--<div class="separator"></div>-->
       <div class="winrate-block m-30">
         <div class="headline"><span class="title">对阵各职业胜率</span></div>
-        <WinRateBoard :list="winrateChartData"></WinRateBoard>
+        <div v-if="winrateChartData.length">
+          <WinRateBoard :list="winrateChartData"></WinRateBoard>
+        </div>
+        <div class="no-data" v-else>
+          缺少对战数据
+        </div>
       </div>
       <div class="separator"></div>
       <div class="data-chart">
@@ -86,29 +116,24 @@
         <canvas canvas-id="canvasColumn" id="canvasColumn" class="charts" v-if="!costChartImg"></canvas>
         <img class="charts" :src="costChartImg" mode="aspectFit" v-else>
       </div>
+      <div class="safe-panel" :style="{'height': isIphoneX?90+'rpx':60+'rpx'}"></div>
+      <div style="position: fixed; top: 9999999999999px; overflow: hidden">
+        <canvas :style="{width: canvasWidth+'px', height: canvasHeight+'px', 'margin-left': '30rpx'}" canvas-id="deck-pic"></canvas>
+      </div>
+      <div class="float-btn" :style="{'bottom': isIphoneX?70+'px':50+'px'}">
+        <floatBtnGroup @onCompare="openCompareDeckModal" :badgeCount="badgeCount" showCompare="true"></floatBtnGroup>
+      </div>
+      <compareDeckModal ref="cDeckModal" :deckDetail='deckDetail'></compareDeckModal>
     </div>
     <div class="loading" v-else>
       <SpinKit :mode="'sk-spinner-pulse'"></SpinKit>
     </div>
-    <div class="safe-panel" :style="{'height': 60+'rpx'}"></div>
-    <div style="position: fixed; top: 9999999999999px; overflow: hidden">
-      <canvas :style="{width: canvasWidth+'px', height: canvasHeight+'px', 'margin-left': '30rpx'}" canvas-id="deck-pic"></canvas>
-    </div>
-    <div class="float-btn">
-      <floatBtnGroup @onCompare="openCompareDeckModal" :badgeCount="badgeCount" showCompare="true"></floatBtnGroup>
-    </div>
-    <compareDeckModal ref="cDeckModal"
-                      @confirm="handleDeckCompare"
-                      @clear="handleClearDeckModal"
-                      @addCompareDeck1="handleAddDeck1"
-                      @addCompareDeck2="handleAddDeck2"
-    ></compareDeckModal>
   </div>
 </template>
 <script>
 import utils from '@/utils'
 import { mapGetters, mapMutations, mapState } from 'vuex'
-import {getDeckDetail, setUserCollection, cancelUserCollection, getArchetypeDetail} from "@/api/dbapi";
+import {getDeckDetail, setUserCollection, cancelUserCollection, getArchetypeDetail, getDeckCardList} from "@/api/dbapi";
 import {getComponentByTag, iFanrTileImageURL, getImageInfoAsync} from "@/utils";
 import DeckCards from '@/components/DeckCards'
 import FooterMenu from '@/components/FooterMenu'
@@ -120,6 +145,7 @@ import compareDeckModal from '@/components/compareDeckModal'
 // import BarChart from '@/components/BarChart'
 import uCharts from '@/components/u-charts/u-charts.js';
 import SpinKit from '@/components/SpinKit'
+import mulliganList from '../components/mulliganList'
 
 let _this;
 let barChart=null;
@@ -151,6 +177,7 @@ export default {
     floatBtnGroup,
     compareDeckModal,
     SpinKit,
+    mulliganList,
     // BarChart
   },
   data() {
@@ -187,7 +214,15 @@ export default {
       cWidth:'',
       cHeight:'',
       pixelRatio:1,
-      costChartImg: null
+      costChartImg: null,
+      tabbar: [
+        {id: 'overview', text: '套牌组成'},
+        {id: 'mulligan', text: '调度建议'},
+      ],
+      activeIndex: 0,
+      currentTab: 0,
+      pageDelayFlag: false,
+      videoAd: null
     }
   },
   computed: {
@@ -199,6 +234,7 @@ export default {
       'showBubble',
       'compareDeck1',
       'compareDeck2',
+      'isIphoneX'
     ]),
     badgeCount() {
       let count = 0
@@ -219,6 +255,19 @@ export default {
     },
   },
   methods: {
+    sortFunction() {
+      return function(a, b) {
+        if(a.cost===b.cost) {
+          if (a.name>=b.name) {
+            return 1
+          } else {
+            return -1
+          }
+        } else {
+          return a.cost-b.cost
+        }
+      }
+    },
     resetPageData() {
       this.deckDetail = Object.assign({}, defaultDetail)
       this.bannerImg = null
@@ -259,8 +308,8 @@ export default {
           }
         })
       } else {
-        this.checkDeckCollected()
         this.deckDetail = res
+        this.checkDeckCollected()
         let filterName = this.decksName.filter(v => {
           return v.ename === this.deckDetail.deck_name
         })
@@ -407,11 +456,7 @@ export default {
     //  检查当前卡组是否已收藏
       if (this.userInfo.id) {
         let res = this.collectedDecks.filter(item => {
-          if (this.recordID) {
-            return item.id === this.recordID
-          } else {
-            return item.deck_id === this.deckID
-          }
+          return item.deck_id === this.deckDetail.deck_id
         })
         this.deckCollected = res.length > 0;
       }
@@ -434,7 +479,6 @@ export default {
       // 相册授权
       wx.getSetting({
         success(res) {
-          console.log('getSetting', res)
           // 进行授权检测，未授权则进行弹层授权
           if (!res.authSetting['scope.writePhotosAlbum']) {
             wx.authorize({
@@ -461,7 +505,6 @@ export default {
             })
           } else {
             // 已授权则直接进行保存图片
-            console.log('PhotosAlbum已授权')
             _this.drawDeckCanvas()
           }
         },
@@ -476,7 +519,6 @@ export default {
       })
     },
     async drawDeckCanvas() {
-      console.log('drawDeckCanvas')
       let rarityColor = {
         common: '#5e5e5e',
         rare: '#1768c6',
@@ -530,7 +572,6 @@ export default {
       }
       ctx.fillText(mode, this.canvasWidth-32, 42)
       ctx.restore()
-      console.log('头部绘制完成')
 
       // 绘制卡牌主体部分
       let grd=ctx.createLinearGradient(27,0,136,0);
@@ -603,7 +644,7 @@ export default {
       ctx.textAlign = 'center'
       ctx.textBaseline = 'middle'
       ctx.setFillStyle('#fff')
-      ctx.fillText('微信小程序：炉石传说情报站', this.canvasWidth/2, cardListHeight+headHeight+bRectHeight/2+2)
+      ctx.fillText('QQ小程序：炉石传说情报站', this.canvasWidth/2, cardListHeight+headHeight+bRectHeight/2+2)
       ctx.restore()
 
       let _this = this
@@ -663,22 +704,6 @@ export default {
     openCompareDeckModal() {
       this.$refs.cDeckModal.showModal()
     },
-    handleClearDeckModal() {
-      this.$store.commit('clearDecks')
-    },
-    handleDeckCompare() {
-      console.log('开始对比卡组')
-      console.log(this.compareDeck1, this.compareDeck2)
-      wx.navigateTo({
-        url: `/pages/decks/compareDeck/index`
-      })
-    },
-    handleAddDeck1() {
-      this.$store.commit('setFirstDeck', this.deckDetail)
-    },
-    handleAddDeck2() {
-      this.$store.commit('setSecondDeck', this.deckDetail)
-    },
     showColumn(canvasId,chartData){
     	barChart=new uCharts({
     		$this:_this,
@@ -711,7 +736,6 @@ export default {
             height: _this.cHeight*_this.pixelRatio,
             canvasId: 'canvasColumn',
             success(res) {
-              console.log(res.tempFilePath)
               _this.costChartImg = res.tempFilePath
             },
             fail(err) {
@@ -720,12 +744,115 @@ export default {
           })
         }, 1000)
       });
+    },
+    tabBarClick(e) {
+      if (e.currentTarget.id == 1) {
+        try {
+          let value = wx.getStorageSync('ads_video_date')
+          let now = new Date()
+          let today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()/1000
+          if (today === value) {
+            // Do something with return value
+            this.activeIndex = e.currentTarget.id;
+            this.currentTab =this.activeIndex;
+          } else {
+            wx.showModal({
+              title: '提示',
+              content: '当日播放完整激励视频即可解锁该功能。（默认会播放声音，建议降低手机音量）',
+              success: res => {
+                if (res.confirm) {
+                  this.playVideoAds()
+                } else if (res.cancel) {
+                  console.log('用户点击取消')
+                }
+              }
+            })
+          }
+        } catch (e) {
+          // Do something when catch error
+          this.activeIndex = e.currentTarget.id;
+          this.currentTab =this.activeIndex;
+        }
+      } else {
+        this.activeIndex = e.currentTarget.id;
+        this.currentTab =this.activeIndex;
+      }
+    },
+    async initVideoAds() {
+      if (qq.createRewardedVideoAd) {
+        this.videoAd = qq.createRewardedVideoAd({
+          adUnitId: 'de472ebbad6af5063148af11428da951'
+        })
+        this.videoAd.onClose(async (status) => {
+          console.log('激励视频关闭', status)
+          if (status && status.isEnded || status === undefined) {
+            // let res = await getCustomerSetting(this.userInfo.id)
+            // let temp = ''
+            // if (res.meta.total_count > 0) {
+            //   let ad_click_num = res.objects[0].ad_click_num + 1
+            //   temp = await updateCustomerSetting({
+            //     ad_click_num: ad_click_num,
+            //   }, res.objects[0].id)
+            // } else {
+            //   temp = await addCustomerSetting({}, this.userInfo.id)
+            // }
+            let now = new Date()
+            try {
+              wx.setStorageSync('ads_video_date', new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()/1000)
+            } catch (e) {
+              console.log(e)
+              this.activeIndex = 1;
+              this.currentTab = this.activeIndex;
+            }
+            this.activeIndex = 1;
+            this.currentTab = this.activeIndex;
+          } else {
+            wx.showToast({
+              title: '没有完整播放视频哦，喵。。。',
+              icon: 'none',
+              duration: 2500
+            })
+          }
+        })
+        this.videoAd.onError((res) => {
+          console.log('激励视频错误', res)
+          this.activeIndex = 1;
+          this.currentTab =this.activeIndex;
+          wx.showToast({
+            title: '出了点小问题，无法播放激励视频',
+            icon: 'none',
+            duration: 2500
+          })
+        })
+      }
+    },
+    async playVideoAds() {
+      let videoAdUseable = true //wx.canIUse('createRewardedVideoAd')
+      if (videoAdUseable) {
+        if (this.videoAd) {
+          this.videoAd.show().catch(() => {
+            // 失败重试
+            this.videoAd.load()
+              .then(() => videoAd.show())
+              .catch(err => {
+                console.log('激励视频 广告显示失败')
+                this.activeIndex = 1;
+                this.currentTab =this.activeIndex;
+              })
+          })
+        }
+      } else {
+        wx.showToast({
+          title: '微信版本过低，无法播放激励视频',
+          icon: 'none',
+          duration: 2500
+        })
+        this.activeIndex = 1;
+        this.currentTab =this.activeIndex;
+      }
     }
   },
   async mounted() {
-    setTimeout(() => {
-      this.$store.commit('setShowBubbleFlag', false)
-    }, 4000)
     this.recordID = this.$root.$mp.query.id
     this.deckID = this.$root.$mp.query.deckID
     this.deckMode = this.$root.$mp.query.mode?this.$root.$mp.query.mode:'Standard'
@@ -736,11 +863,19 @@ export default {
     this.trending = !!this.$root.$mp.query.trending
     this.collected = !!this.$root.$mp.query.collected
     await this.genDeckData()
+    setTimeout(() => {
+      this.pageDelayFlag = true
+      this.$store.commit('setShowBubbleFlag', true)
+      setTimeout(() => {
+        this.$store.commit('setShowBubbleFlag', false)
+      }, 4000)
+    }, 1000)
   },
   onLoad() {
     _this = this;
     this.cWidth=uni.upx2px(750);
     this.cHeight=uni.upx2px(300);
+    this.initVideoAds()
   },
   onPullDownRefresh() {
     // 下拉刷新要把json字符串转换为对象，否则getDeckData时操作对象会报错
@@ -962,10 +1097,58 @@ export default {
       }
     }
   }
+  .mulligan-list, .winrate-block {
+    .no-data {
+      width: 100%;
+      line-height: 200rpx;
+      text-align: center;
+      vertical-align: middle;
+      font-size: 14px;
+      overflow: hidden;
+      box-sizing: border-box;
+    }
+  }
+  .panel-tab {
+    width: 100%;
+    height: 89rpx;
+    display: flex;
+    flex-wrap: nowrap;
+    justify-content: space-around;
+    background-color: #fff;
+    border-bottom: 1rpx solid #eee;
+    z-index: 2;
+    .tab-item {
+      position: relative;
+      height: 100%;
+      width: 232rpx;
+      line-height: 89rpx;
+      font-size: 16px;
+      color: #666;
+      text-align: center;
+      &:after {
+        display: none;
+        content: '';
+        position: absolute;
+        width: 53rpx;
+        height: 4rpx;
+        bottom: 11rpx;
+        left: 50%;
+        transform: translateX(-50%);
+        background-color: $palette-blue;
+      }
+    }
+    .tab-item-active {
+      color: $palette-blue;
+      font-weight: bold;
+      &:after {
+        display: block;
+        animation: tabBottomIn .4s;
+      }
+    }
+  }
   .data-chart {
     width: 100%;
     overflow: hidden;
-    margin-bottom: 30rpx;
     /*margin: 20rpx;*/
     .chart-text {
       height:27px;
@@ -979,21 +1162,25 @@ export default {
   	background-color: #FFFFFF;
   }
   .separator {
-    width: 100%;
+    // width: 100%;
     box-sizing: border-box;
     border-bottom: 1rpx solid #eee;
-    margin: 30rpx 0;
+    margin: 15rpx 30rpx;
   }
   .footer {
     position: fixed;
     bottom: 0;
     background-color: white;
-    z-index: 20;
+    z-index: 9999;
   }
   .float-btn {
     position: fixed;
     bottom: 50px;
     right: 20px;
+  }
+  @keyframes tabBottomIn {
+    from {width: 100%; opacity: 0}
+    to {width: 53rpx; opacity: 1}
   }
 }
 </style>

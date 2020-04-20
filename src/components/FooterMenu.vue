@@ -1,5 +1,5 @@
 <template>
-  <div class="footer-menu">
+  <div class="footer-menu" :style="{'height':isIphoneX?124+'rpx':90+'rpx'}">
     <button open-type="share" class="share">
       <span class="icon iconfont">&#xe63b;</span>
       <span>分享给好友</span>
@@ -23,6 +23,7 @@
   </div>
 </template>
 <script>
+import { mapGetters } from 'vuex' 
 export default {
   name: 'FooterMenu',
   props: ['showCollectBtn', 'showExportBtn', 'collected', 'link'],
@@ -30,6 +31,11 @@ export default {
     return {
 
     }
+  },
+  computed: {
+    ...mapGetters([
+      'isIphoneX'
+    ]),
   },
   methods: {
     handleCopyLink() {

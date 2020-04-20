@@ -13,21 +13,25 @@
           </div>
         </div>
         <div class="desc">
-          <div class="desc-item" v-show="archetypeDetail.real_winrate">
+          <div class="desc-item">
             <p class="item-name">总胜率</p>
-            <p class="item-meta color-light-green" :class="{'color-red': archetypeDetail.real_winrate<50}">{{archetypeDetail.real_winrate}}%</p>
+            <p class="item-meta color-light-green" :class="{'color-red': archetypeDetail.real_winrate<50}" v-if="archetypeDetail.real_winrate">{{archetypeDetail.real_winrate}}%</p>
+            <p class="item-meta" v-else>N/A</p>
           </div>
-          <div class="desc-item" v-show="archetypeDetail.real_games">
+          <div class="desc-item">
             <p class="item-name">总对局数</p>
-            <p class="item-meta">{{archetypeDetail.real_games}}</p>
+            <p class="item-meta" v-if="archetypeDetail.real_games">{{archetypeDetail.real_games}}</p>
+            <p class="item-meta" v-else>N/A</p>
           </div>
-          <div class="desc-item" v-show="archetypeDetail.popularity">
+          <div class="desc-item">
             <p class="item-name">热度</p>
-            <p class="item-meta">{{archetypeDetail.popularity}}%</p>
+            <p class="item-meta" v-if="archetypeDetail.popularity">{{archetypeDetail.popularity}}%</p>
+            <p class="item-meta" v-else>N/A</p>
           </div>
-          <div class="desc-item" v-show="archetypeDetail.faction_popularity">
+          <div class="desc-item">
             <p class="item-name">职业占比</p>
-            <p class="item-meta">{{archetypeDetail.faction_popularity}}%</p>
+            <p class="item-meta" v-if="archetypeDetail.faction_popularity">{{archetypeDetail.faction_popularity}}%</p>
+            <p class="item-meta" v-else>N/A</p>
           </div>
         </div>
       </div>
@@ -173,7 +177,7 @@
         <DeckTable :selectedFaction="selectedFaction" :date="updateDate" :tableTitle="tableTitle" :tableData="selectedFaction.data"
                    :tableName="'对阵'+selectedFaction.name" @itemClick="handleDeckItemClick"></DeckTable>
       </div>
-      <load-more :nomore=true />
+      <load-more :nomore='true' />
     </div>
   </div>
 </template>
@@ -564,7 +568,8 @@ export default {
       box-sizing: border-box;
     }
     .tier-desc {
-      border: none;
+      border-bottom: 1rpx solid #eee;
+      box-sizing: border-box;
     }
   }
   .bw-game-panel, .pop-deck {

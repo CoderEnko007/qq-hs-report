@@ -1,11 +1,12 @@
 <template>
-  <div class="cards-list" :style="{display: colNum===1?'block':'flex', width: colNum==1?'151px':'100%'}">
+  <!-- <div class="cards-list" :style="{display: colNum===1?'block':'flex', width: colNum==1?'151px':'100%'}"> -->
+  <div class="cards-list" :style="{display: colNum===1?'block':'flex', width: '100%'}">
     <div :class="['card-tile', {'menu-item-empty': !card.name}]"
          v-for="(card, index) in formatData"
          :key="index"
          @click="cardClick(card)"
-         :style="{width: colNum?'100%':'47.8%', 'margin-top': smallSpacing?20+'rpx':5+'rpx'}">
-      <div class="frame" :class="{'display-none': !card.name || !card.diffFlag}"></div>
+         :style="{width: colNum?'100%':'330rpx', 'margin-top': smallSpacing?20+'rpx':5+'rpx'}">
+      <div class="frame" :class="{'display-none': !card.diffFlag}"></div>
       <div :class="['card-gem', {
         'rarity-common': card.rarity==='FREE'||card.rarity==='COMMON',
         'rarity-rare': card.rarity==='RARE',
@@ -39,7 +40,7 @@ import {genTileImageURL, iFanrTileImageURL} from "@/utils";
 
 export default {
   name: 'DeckCards',
-  props: ['cards', 'colNum', 'ifanrTile', 'smallSpacing'],
+  props: ['cards', 'colNum', 'ifanrTile', 'smallSpacing', 'mulligan'],
   data() {
     return {
       formatData: null
@@ -92,8 +93,12 @@ export default {
     this.formatCardList()
   },
   watch: {
-    cards: function(val1, val2) {
-      this.formatCardList()
+    cards: {
+      handler(newValue, oldValue) {
+        this.formatCardList()
+      },
+      deep: true,
+      immediate:true
     }
   }
 }
@@ -108,9 +113,16 @@ export default {
   flex-wrap: wrap;
   color: white;
   box-sizing: border-box;
+  // .mulligan-header {
+  //   width: 302rpx;
+  //   line-height: 29px;
+  //   text-align: center;
+  //   color: #999;
+  //   font-size: 15px;
+  // }
   .card-tile {
     position: relative;
-    width: 47.8%;
+    width: 302rpx;
     height: 58rpx;
     line-height: 58rpx;
     font-size: 14px;

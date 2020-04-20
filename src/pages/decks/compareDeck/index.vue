@@ -16,7 +16,8 @@
               <img :src="deck.factionIcon" mode="aspectFit">
             </div>
             <div class="name">
-              <p class="cname">{{deck.cname}}</p>
+              <p class="cname ellipsis" v-if="deck.cname">{{deck.cname}}</p>
+              <p class="cname" v-else>自定义卡组</p>
               <div class="dust-cost" v-show="deck.dust_cost">
                 <img :src="dustImage" mode="aspectFit">
                 <p>{{deck.dust_cost}}</p>
@@ -24,21 +25,25 @@
             </div>
           </div>
           <div class="desc">
-            <div class="desc-item" v-show="deck.real_win_rate">
+            <div class="desc-item">
               <span class="item-name">胜率：</span>
-              <span class="item-meta font-bold color-light-green" :class="{'color-red': deck.real_win_rate<50}">{{deck.real_win_rate}}%</span>
+              <span class="item-meta font-bold color-light-green" :class="{'color-red': deck.real_win_rate<50}" v-if="deck.real_win_rate">{{deck.real_win_rate}}%</span>
+              <span class="item-meta font-bold" v-else>N/A</span>
             </div>
-            <div class="desc-item" v-show="deck.game_count">
+            <div class="desc-item">
               <span class="item-name">对局数：</span>
-              <span class="item-meta">{{deck.game_count}}</span>
+              <span class="item-meta" v-if="deck.game_count">{{deck.game_count}}</span>
+              <span class="item-meta" v-else>N/A</span>
             </div>
-            <div class="desc-item" v-show="deck.duration">
+            <div class="desc-item">
               <span class="item-name">对局时长：</span>
-              <span class="item-meta">{{deck.duration}}分钟</span>
+              <span class="item-meta" v-if="deck.duration">{{deck.duration}}分钟</span>
+              <span class="item-meta" v-else>N/A</span>
             </div>
-            <div class="desc-item" v-show="deck.turns">
+            <div class="desc-item">
               <span class="item-name">回合数：</span>
-              <span class="item-meta">{{deck.turns}}</span>
+              <span class="item-meta" v-if="deck.turns">{{deck.turns}}</span>
+              <span class="item-meta" v-else>N/A</span>
             </div>
           </div>
           <!--<div class="detailBtn" @click="gotoDeckDetail(deck)">-->
@@ -84,6 +89,8 @@ export default {
   data() {
     return {
       dustImage: utils.image.dustImage,
+      deck1: null,
+      deck2: null
     }
   },
   computed: {
@@ -101,7 +108,7 @@ export default {
       return this.compareDeck1.faction === this.compareDeck2.faction
     },
     decksInfo() {
-      return [this.compareDeck1, this.compareDeck2]
+      return [this.deck1, this.deck2]
     },
   },
   methods: {
@@ -149,6 +156,8 @@ export default {
       });
       card['diffFlag'] = res.length <= 0;
     }
+    this.deck1 = utils.deepCopy(this.compareDeck1)
+    this.deck2 = utils.deepCopy(this.compareDeck2)
   }
 }
 </script>
@@ -210,6 +219,7 @@ export default {
         box-sizing: border-box;
         .deck-name {
           width: 240rpx;
+          height: 94rpx;
           margin: 0 auto;
           box-sizing:border-box;
           .icon {
@@ -229,6 +239,8 @@ export default {
               height:50rpx;
               line-height:50rpx;
               font-size: 35rpx;
+            }
+            .ellipsis {
               white-space:nowrap;
               overflow:hidden;
               text-overflow:ellipsis;
@@ -257,6 +269,7 @@ export default {
         .desc {
           display: flex;
           height:240rpx;
+          min-width: 150px;
           justify-content: space-between;
           flex-direction: column;
           box-sizing: border-box;

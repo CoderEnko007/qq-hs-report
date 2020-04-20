@@ -46,20 +46,62 @@
         </div>
       </div>
     </div>
-    <!-- <div class="ads">
-      <ad unit-id="adunit-038fb5d0b45f4699"></ad>
-    </div> -->
-    <div style="height: 80rpx"></div>
-    <div class="footer">
-      <!-- <FooterMenu></FooterMenu> -->
-      <div class="btn-group">
-        <button class="btn previous" @click="handlePrevious" :class="{'de-active': !prevBtnEnable}"><span>上一张</span></button>
-        <button class="btn next" @click="handleNext" :class="{'de-active': !nextBtnEnable}"><span>下一张</span></button>
+    <div class="deck-list" v-show="cardDetail.collectible">
+      <div class="headline">
+        <span class="title">相关套牌</span>
+        <div class="filter-picker">
+          <picker mode="selector" :value="rangePicker.selectedItem" :range="rangePickerList" @change="handleRankRangeChange">
+            <span class='selector-item'>{{rangePicker.list[rangePicker.selectedItem].text}}</span>
+            <span class="iconfont" :style="{'vertical-align': 'middle'}">&#xe668;</span>
+          </picker>
+        </div>
+      </div>
+      <div style="margin: 0 30rpx;" v-if="cardDetail.cardClass==='Neutral'">
+        <HeroesPanel :dataList="factionIcons" :selected="selectedFaction" @itemClick="handleIconsClick"></HeroesPanel>
+      </div>
+      <div class="panel-block">
+        <div class="filter-item">
+          <div class="table-td table-name"><span>{{factionName}}</span></div>
+        </div>
+        <div class="filter-item" v-for="(item, index) in filterOrder" :key="index" @click="handleOrderChange(item)">
+          <div class="order-item">
+            <span>{{item.name}}</span>
+            <img v-if="deckListOrder && deckListOrder === item.id" :src="upOrder" mode="aspectFit">
+            <img v-else-if="deckListOrder === '-'+item.id" :src="downOrder" mode="aspectFit">
+            <img v-else :src="normalOrder" mode="aspectFit">
+          </div>
+        </div>
+      </div>
+      <div class="panel panel-list" v-if="deckList">
+        <div v-if="pageDeck.length>0">
+          <DecksBoard :list="pageDeck" @itemClick="handleDeckClick"></DecksBoard>
+          <div style="margin: 10px 0;">
+            <uni-pagination show-icon="true" :total="filterdDeckCounts" :current="currentPage" :pageSize="countsPerPage" @change="handlePageChange">
+            </uni-pagination>
+          </div>
+        </div>
+        <div class="no-deck" v-else>
+          <p>该模式下当前职业没有包含该卡牌的套牌</p>
+        </div>
+      </div>
+      <div class="loading" v-else>
+        <SpinKit :mode="'sk-spinner-pulse'"></SpinKit>
       </div>
     </div>
-    <div class="float-btn">
-      <floatBtnGroup showShare="true"></floatBtnGroup>
+    <div class="ads">
+      <ad unit-id="adunit-038fb5d0b45f4699"></ad>
     </div>
+    <div :style="{'height': isIphoneX?124+'rpx':90+'rpx'}"></div>
+    <div class="footer">
+      <!-- <FooterMenu></FooterMenu> -->
+      <div class="btn-group" :style="{'height':isIphoneX?124+'rpx':90+'rpx'}">
+        <button class="btn previous" @click="handlePrevious" :class="{'de-active': !prevBtnEnable}" :style="{'margin-bottom':isIphoneX?30+'rpx':0}"><span>上一张</span></button>
+        <button class="btn next" @click="handleNext" :class="{'de-active': !nextBtnEnable}" :style="{'margin-bottom':isIphoneX?30+'rpx':0}"><span>下一张</span></button>
+      </div>
+    </div>
+    <!-- <div class="float-btn" :style="{'top': isIphoneX?130+'px':100+'px'}">
+      <floatBtnGroup showShare="true"></floatBtnGroup>
+    </div> -->
   </div>
 </template>
 <script>
@@ -67,11 +109,14 @@ import { getCardPicture } from "@/utils";
 import { mapGetters } from 'vuex'
 import utils from '@/utils'
 import {genOrigImageURL, genCardsImageURL, gen512CardsImageURL} from '@/utils'
-import {getCardDetail, getCardsList} from "@/api/dbapi";
+import {getCardDetail, getCardsList, getDeckList, getSeriesData} from "@/api/dbapi";
 import FooterMenu from '@/components/FooterMenu'
 import floatBtnGroup from '@/components/floatBtnGroup'
 import NavBar from '@/components/NavBar'
 import SpinKit from '@/components/SpinKit'
+import DecksBoard from '@/components/DecksBoard'
+import uniPagination from "@/components/uni-pagination/uni-pagination"
+import HeroesPanel from '@/components/HeroesPanel'
 
 const heroes = {
   Druid: {name: '德鲁伊', image: '/static/heroIcons/druid.png'},
@@ -101,6 +146,9 @@ export default {
     floatBtnGroup,
     NavBar,
     SpinKit,
+    DecksBoard,
+    uniPagination,
+    HeroesPanel
   },
   data() {
     return {
@@ -113,7 +161,44 @@ export default {
       selectedAudio: '',
       audioPlaying: false,
       imageLoaded: false,
-      entourageList: null
+      entourageList: null,
+      deckListMode: 'Standard',
+      deckList: null,
+      countsPerPage: 6,
+      totalDecks: 0,
+      currentPage: 1,
+      rangePicker: {
+        selectedItem: 0,
+        list: [{
+            text: '标准模式',
+            mode: 'Standard'
+          },
+          {
+            text: '狂野模式',
+            mode: 'Wild'
+          }
+        ]
+      },
+      factionIcons: null,
+      selectedFaction: '',
+      filterOrder: [{
+          id: 'game_count',
+          name: '对局数'
+        },
+        {
+          id: 'dust_cost',
+          name: '合成花费'
+        },
+        {
+          id: 'win_rate',
+          name: '胜率'
+        },
+      ],
+      deckListOrder: '-game_count',
+      normalOrder: '/static/icons-v2/rank-normal.png',
+      upOrder: '/static/icons-v2/rank-up.png',
+      downOrder: '/static/icons-v2/rank-down.png',
+      standardSetList: []
     }
   },
   computed: {
@@ -124,7 +209,9 @@ export default {
       'fbiFlag',
       'card_resource',
       'cardsPageParams',
-      'entourageParams'
+      'entourageParams',
+      'isIphoneX',
+      'decksName'
     ]),
     getEnAudio() {
       if (this.cardDetail.audios) {
@@ -182,17 +269,82 @@ export default {
       } else {
         return this.entourageParams.index<this.entourageParams.counts-1
       }
+    },
+    pageCount() {
+      return Math.ceil(this.totalDecks/this.countsPerPage)
+    },
+    pageDeck() {
+      if (this.deckList) {
+        let filterdDeckList = this.deckList.filter(v => {
+          if (this.selectedFaction !== '') {
+            return v.faction === this.selectedFaction
+          } else {
+            return true
+          }
+        })
+        filterdDeckList.sort(this.compareFunction(this.deckListOrder))
+        return filterdDeckList.slice((this.currentPage-1)*this.countsPerPage, this.countsPerPage*this.currentPage)
+      } else {
+        return []
+      }
+    },
+    filterdDeckCounts() {
+      if (this.deckList) {
+        let filterdDeckList = this.deckList.filter(v => {
+          if (this.selectedFaction !== '') {
+            return v.faction === this.selectedFaction
+          } else {
+            return true
+          }
+        })
+        return filterdDeckList.length
+      } else {
+        return 0
+      }
+    },
+    rangePickerList() {
+      return this.rangePicker.list.map(item => {
+        return item.text
+      })
+    },
+    factionName() {
+      if (this.selectedFaction) {
+        return this.selectedFaction?utils.faction[this.selectedFaction].name:''
+      } else {
+        return '全职业'
+      }
     }
   },
   methods: {
+    compareFunction(key) {
+      return function(obj1, obj2) {
+        let formatKey = key.replace('-', '')
+        if (key.indexOf('-') !== -1) {
+          return obj2[formatKey] - obj1[formatKey]
+        } else {
+          return obj1[formatKey] - obj2[formatKey]
+        }
+      }
+    },
     imageLoad(e) {
       this.imageLoaded = true
     },
     genCardImage(hsId) {
       return getCardPicture(this, hsId, false, this.fbiFlag, this.fbiVersion, this.fbiKey)
     },
+    genFactionIcons() {
+      this.factionIcons = []
+      for (let key in utils.faction) {
+        if (utils.faction.hasOwnProperty(key)) {
+          this.factionIcons.push({
+            id: key,
+            name: utils.faction[key].name,
+            image: utils.faction[key].image
+          })
+        }
+      }
+    },
     formatCardDetail(detail) {
-        console.log('formatCardDetail', detail)
       this.cardDetail = detail
       this.cardDetail.bgImg = genOrigImageURL(this.cardDetail.hsId)
       // this.cardDetail.cardImg = gen512CardsImageURL(this.cardDetail.hsId)
@@ -259,20 +411,45 @@ export default {
       } else {
         this.showZhAudio = false
       }
+      this.initDeckList()
       wx.stopPullDownRefresh();
       wx.hideNavigationBarLoading()
     },
-    initCardDetail() {
+    async initDeckList(mode) {
+      this.deckList = null
+      this.totalDecks = 0
+      this.selectedFaction = ''
+      if (mode) {
+        this.deckListMode = mode
+        for (let i in this.rangePicker.list) {
+          if (this.rangePicker.list.hasOwnProperty(i)) {
+            if (this.rangePicker.list[i].mode === mode) {
+              this.rangePicker.selectedItem=i
+            }
+          }
+        }
+      } else {
+        let res = this.standardSetList.filter(v => {
+          return v.setId === this.cardDetail.set_id
+        }).length>0?true:false
+        if (res) {
+          this.deckListMode = 'Standard'
+          this.rangePicker.selectedItem = 0
+        } else {
+          this.deckListMode = 'Wild'
+          this.rangePicker.selectedItem = 1
+        }
+      }
+      let deckRes = await getDeckList({mode: this.deckListMode, card: [this.cardDetail.dbfId]}, 1000, 0, '-game_count')
+      this.deckList = utils.translateDeckName(deckRes.objects, this.decksName)
+      // this.totalDecks = deckRes.meta.total_count
+    },
+    async initCardDetail() {
       this.showEnAudio = false
       this.showZhAudio = false
-      wx.showNavigationBarLoading();
-      getCardDetail({dbfId: parseInt(this.cardId), hsId: this.cardHsId}).then(res => {
-        this.formatCardDetail(res[0])
-      }).catch(err => {
-        console.log(err)
-        wx.stopPullDownRefresh();
-        wx.hideNavigationBarLoading()
-      })
+      this.standardSetList = await getSeriesData('Standard')
+      let cardDetailRes = await getCardDetail({dbfId: parseInt(this.cardId), hsId: this.cardHsId})
+      this.formatCardDetail(cardDetailRes[0])
     },
     previewCard() {
       if (this.cardDetail.cardImg) {
@@ -383,9 +560,47 @@ export default {
           })
         }
       }
-    }
+    },
+    handleDeckClick(item) {
+      wx.navigateTo({
+        url: `/pages/decks/deckDetail/index?id=${item.id}&mode=${this.deckListMode}`
+      })
+    },
+    handlePageChange(e) {
+      this.currentPage = e.current
+    },
+    handleRankRangeChange(e) {
+      this.rangePicker.selectedItem = e.mp.detail.value
+      this.deckListMode = this.rangePicker.list[this.rangePicker.selectedItem].mode
+      this.initDeckList(this.deckListMode)
+    },
+    handleIconsClick(item) {
+      if (this.selectedFaction === item.id) {
+        this.selectedFaction = ''
+      } else {
+        this.selectedFaction = item.id
+      }
+      let filterdDeckList = this.deckList
+      if (this.selectedFaction !== '') {
+        filterdDeckList = this.deckList.filter(v => {
+          return v.faction === this.selectedFaction
+        })
+      } 
+      this.totalDecks = filterdDeckList.length
+      // this.initDeckList()
+      // this.deckList.
+    },
+    handleOrderChange(item) {
+      if (this.deckListOrder.indexOf(item.id) >= 0) {
+        this.deckListOrder = this.deckListOrder.split('')[0] === '-' ? item.id : '-' + item.id
+      } else {
+        this.deckListOrder = '-' + item.id
+      }
+      // this.sortTableData()
+    },
   },
   mounted() {
+    this.genFactionIcons()
     this.imageLoaded = false
     this.cardId = this.$root.$mp.query.id
     this.cardHsId = this.$root.$mp.query.hsId
@@ -584,6 +799,7 @@ export default {
     position: fixed;
     bottom: 0;
     box-shadow:0px 0px 4px #c0c0c0;
+    z-index: 999;
     .btn-group {
       position: relative;
       display: flex;
@@ -619,11 +835,89 @@ export default {
 }
 .headline {
   margin: 0 30rpx;
+  .filter-picker {
+    position: absolute;
+    top: 50%;
+    right: 0;
+    transform: translateY(-50%);
+    font-size: 10px;
+    height: 16px;
+    line-height: 16px;
+    border-radius: 10px;
+    text-align: center;
+    padding: 1px 6px;
+    background: $palette-blue;
+    color: #fff;
+    border: 1rpx solid $palette-blue;
+    font-weight: normal;
+  }
 }
 .float-btn {
   position: fixed;
-  bottom: 50px;
-  right: 20px;
+  top: 100px;
+  right: 10px;
+}
+.loading {
+  position: relative;
+  height: 300rpx;
+}
+.panel-list {
+  .no-deck {
+    height: 300rpx;
+    display: flex;
+    align-items: center;
+    text-align: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+}
+.panel-block {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  height: 86rpx;
+  padding: 0 30rpx;
+  /*box-shadow: 0 3px 2px -3px #000;*/
+  border-bottom: 1rpx solid #eee;
+  box-sizing: border-box;
+  .filter-item {
+    position: relative;
+    height: 100%;
+    line-height: 86rpx;
+    font-size: 13px;
+    .table-name {
+      width: 265rpx;
+      color: #999;
+      box-sizing: border-box;
+      padding-left: 33rpx;
+    }
+    .picker-icon {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 25rpx;
+      height: 25rpx;
+      margin-left: 10rpx;
+    }
+    .selector-item {
+      text-align: center;
+      font-size: 13px;
+      color: $palette-blue;
+    }
+    .order-item {
+      position: relative;
+      width: 134rpx;
+      text-align: center;
+      img {
+        position: absolute;
+        width: 22rpx;
+        height: 36rpx;
+        margin-left: 5rpx;
+        top: 48%;
+        transform: translateY(-50%);
+      }
+    }
+  }
 }
 @keyframes audioPlay {
   0% {background-image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAB4AAAAeCAYAAAA7MK6iAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAyZpVFh0WE1MOmNvbS5hZG9iZS54bXAAAAAAADw/eHBhY2tldCBiZWdpbj0i77u/IiBpZD0iVzVNME1wQ2VoaUh6cmVTek5UY3prYzlkIj8+IDx4OnhtcG1ldGEgeG1sbnM6eD0iYWRvYmU6bnM6bWV0YS8iIHg6eG1wdGs9IkFkb2JlIFhNUCBDb3JlIDUuNS1jMDIxIDc5LjE1NTc3MiwgMjAxNC8wMS8xMy0xOTo0NDowMCAgICAgICAgIj4gPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4gPHJkZjpEZXNjcmlwdGlvbiByZGY6YWJvdXQ9IiIgeG1sbnM6eG1wPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvIiB4bWxuczp4bXBNTT0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wL21tLyIgeG1sbnM6c3RSZWY9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZVJlZiMiIHhtcDpDcmVhdG9yVG9vbD0iQWRvYmUgUGhvdG9zaG9wIENDIDIwMTQgKFdpbmRvd3MpIiB4bXBNTTpJbnN0YW5jZUlEPSJ4bXAuaWlkOjM0NEQ3RDg1NUQzQTExRTU4NkE2ODlDNENFMTkyNjMzIiB4bXBNTTpEb2N1bWVudElEPSJ4bXAuZGlkOjM0NEQ3RDg2NUQzQTExRTU4NkE2ODlDNENFMTkyNjMzIj4gPHhtcE1NOkRlcml2ZWRGcm9tIHN0UmVmOmluc3RhbmNlSUQ9InhtcC5paWQ6MzQ0RDdEODM1RDNBMTFFNTg2QTY4OUM0Q0UxOTI2MzMiIHN0UmVmOmRvY3VtZW50SUQ9InhtcC5kaWQ6MzQ0RDdEODQ1RDNBMTFFNTg2QTY4OUM0Q0UxOTI2MzMiLz4gPC9yZGY6RGVzY3JpcHRpb24+IDwvcmRmOlJERj4gPC94OnhtcG1ldGE+IDw/eHBhY2tldCBlbmQ9InIiPz7APQCsAAAAW0lEQVR42mL8//8/g5mdKwO9ARPDAIFRi0ctHrV41OLhZzHTQFhcD8Rt9LYYZGkDEKfS22JGWscxCw7xBijNSW+LYZYzDVSq/jdagIxaPGrxqMWjFg+4xQABBgABTAhrvxCDdAAAAABJRU5ErkJggg==);}
